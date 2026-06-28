@@ -1,3 +1,5 @@
+const STORAGE_KEY = 'posQuioscoData';
+
 let products = [
   {id:1,name:'Agua San Luis 625ml',price:1.50,stock:48,barcode:'7751010001234'},
   {id:2,name:'Coca Cola 500ml',price:3.00,stock:24,barcode:'7501055300006'},
@@ -10,19 +12,83 @@ let products = [
 ];
 let cart = [];
 let salesHistory = [];
+let clients = [];
+let providers = [];
+let users = [{id:1,name:'Administrador',role:'Administrador'}];
+let purchases = [];
+let cajaMovs = [];
+let clientPayments = [];
+let providerPayments = [];
+let cierres = [];
+let cajaAbiertaDesde = new Date().toISOString();
 let nextId = 9;
+let nextClientId = 1;
+let nextProviderId = 1;
+let nextUserId = 2;
 let editingId = null;
+let editingClientId = null;
+let editingProviderId = null;
+let editingUserId = null;
+let pagoTarget = null;
+let cajaMovType = null;
+let activeUserId = 1;
 let scanTimer = null;
 let currentTab = 'venta';
+let currentReporte = 'ventas';
+
+function saveData() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({
+    products, salesHistory, clients, providers, users, purchases, cajaMovs,
+    clientPayments, providerPayments, cierres, cajaAbiertaDesde,
+    nextId, nextClientId, nextProviderId, nextUserId, activeUserId
+  }));
+}
+
+function loadData() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (!raw) return;
+  try {
+    const d = JSON.parse(raw);
+    products = d.products || products;
+    salesHistory = d.salesHistory || [];
+    clients = d.clients || [];
+    providers = d.providers || [];
+    users = d.users && d.users.length ? d.users : users;
+    purchases = d.purchases || [];
+    cajaMovs = d.cajaMovs || [];
+    clientPayments = d.clientPayments || [];
+    providerPayments = d.providerPayments || [];
+    cierres = d.cierres || [];
+    cajaAbiertaDesde = d.cajaAbiertaDesde || cajaAbiertaDesde;
+    nextId = d.nextId || nextId;
+    nextClientId = d.nextClientId || nextClientId;
+    nextProviderId = d.nextProviderId || nextProviderId;
+    nextUserId = d.nextUserId || nextUserId;
+    activeUserId = d.activeUserId || activeUserId;
+  } catch (e) {}
+}
+
+function closeModalById(id) {
+  document.getElementById(id).classList.remove('show');
+}
+
+function closeModalOuterById(e, id) {
+  if (e.target === document.getElementById(id)) closeModalById(id);
+}
 
 function setTab(t) {
   currentTab = t;
-  ['venta','inventario','caja'].forEach((tab,i) => {
+  const tabs = ['venta','inventario','clientes','proveedores','caja','reportes','usuarios'];
+  tabs.forEach((tab,i) => {
     document.getElementById('tab-'+tab).style.display = tab===t ? '' : 'none';
-    document.querySelectorAll('.tab')[i].classList.toggle('active', tab===t);
+    document.querySelectorAll('.left > .tabs')[0].querySelectorAll('.tab')[i].classList.toggle('active', tab===t);
   });
   if (t==='inventario') renderInventario();
+  if (t==='clientes') renderClientes();
+  if (t==='proveedores') renderProveedores();
   if (t==='caja') renderCaja();
+  if (t==='reportes') renderReportes();
+  if (t==='usuarios') renderUsuarios();
 }
 
 function renderProducts(filter='') {
@@ -71,6 +137,21 @@ function removeItem(id) {
   renderCart();
 }
 
+function renderClienteSelect() {
+  const sel = document.getElementById('cart-cliente-select');
+  const prev = sel.value;
+  sel.innerHTML = '<option value="">Sin cliente / Mostrador</option>' +
+    clients.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+  sel.value = clients.find(c => String(c.id)===prev) ? prev : '';
+}
+
+function onCarritoClienteChange() {
+  const sel = document.getElementById('cart-cliente-select');
+  document.getElementById('fiado-row').style.display = sel.value ? 'flex' : 'none';
+  if (!sel.value) document.getElementById('fiado-check').checked = false;
+  calcVuelto();
+}
+
 function renderCart() {
   const el = document.getElementById('cart-items');
   const total = cart.reduce((s,c) => s + c.price * c.qty, 0);
@@ -100,10 +181,22 @@ function renderCart() {
   `).join('');
 }
 
+function isFiado() {
+  const sel = document.getElementById('cart-cliente-select');
+  return !!sel.value && document.getElementById('fiado-check').checked;
+}
+
 function calcVuelto() {
   const total = cart.reduce((s,c) => s + c.price * c.qty, 0);
-  const efectivo = parseFloat(document.getElementById('efectivo-input').value) || 0;
   const row = document.getElementById('vuelto-row');
+  const wrap = document.getElementById('efectivo-row-wrap');
+  if (isFiado()) {
+    wrap.style.display = 'none';
+    row.style.display = 'none';
+    return;
+  }
+  wrap.style.display = 'flex';
+  const efectivo = parseFloat(document.getElementById('efectivo-input').value) || 0;
   if (efectivo > 0 && efectivo >= total) {
     document.getElementById('vuelto-amt').textContent = 'S/ ' + (efectivo - total).toFixed(2);
     row.style.display = 'flex';
@@ -114,21 +207,39 @@ function calcVuelto() {
 
 function cobrar() {
   const total = cart.reduce((s,c) => s + c.price * c.qty, 0);
+  const fiado = isFiado();
+  const clienteId = document.getElementById('cart-cliente-select').value;
   const efectivo = parseFloat(document.getElementById('efectivo-input').value) || 0;
-  if (efectivo > 0 && efectivo < total) { showNotify('Efectivo insuficiente', 'danger'); return; }
+  if (!fiado && efectivo > 0 && efectivo < total) { showNotify('Efectivo insuficiente', 'danger'); return; }
   cart.forEach(item => {
     const prod = products.find(p => p.id === item.id);
     if (prod) prod.stock = Math.max(0, prod.stock - item.qty);
   });
-  salesHistory.push({items:[...cart.map(c=>({...c}))], total, time: new Date()});
-  showNotify('Venta registrada — S/ ' + total.toFixed(2), 'success');
+  const cliente = clienteId ? clients.find(c => c.id === Number(clienteId)) : null;
+  if (fiado && cliente) cliente.saldo = (cliente.saldo || 0) + total;
+  salesHistory.push({
+    items:[...cart.map(c=>({...c}))], total, time: new Date(),
+    paymentType: fiado ? 'cuenta corriente' : 'efectivo',
+    clientId: cliente ? cliente.id : null,
+    clientName: cliente ? cliente.name : null,
+    userId: activeUserId,
+    userName: (users.find(u=>u.id===activeUserId)||{}).name || ''
+  });
+  if (!fiado) {
+    cajaMovs.push({id: Date.now(), type:'ingreso', amount: total, desc: 'Venta', date: new Date().toISOString(), auto:true});
+  }
+  showNotify(fiado ? 'Venta a cuenta corriente registrada — S/ ' + total.toFixed(2) : 'Venta registrada — S/ ' + total.toFixed(2), 'success');
   clearCart();
   renderProducts(document.getElementById('barcode-input').value);
+  saveData();
 }
 
 function clearCart() {
   cart = [];
   document.getElementById('efectivo-input').value = '';
+  document.getElementById('cart-cliente-select').value = '';
+  document.getElementById('fiado-check').checked = false;
+  document.getElementById('fiado-row').style.display = 'none';
   renderCart();
 }
 
@@ -189,6 +300,8 @@ function saveProduct() {
   closeModal();
   renderProducts(document.getElementById('barcode-input').value);
   if (currentTab === 'inventario') renderInventario();
+  renderCompraProductoSelect();
+  saveData();
 }
 
 function renderInventario() {
@@ -212,26 +325,311 @@ function renderInventario() {
   }).join('');
 }
 
+function movsSesionActual() {
+  const desde = new Date(cajaAbiertaDesde).getTime();
+  return cajaMovs.filter(m => new Date(m.date).getTime() >= desde);
+}
+
 function renderCaja() {
   const el = document.getElementById('caja-section');
-  if (!salesHistory.length) {
-    el.innerHTML = '<div class="resumen-empty">No hay ventas registradas hoy</div>'; return;
+  const movs = movsSesionActual();
+  if (!movs.length) {
+    el.innerHTML = '<div class="resumen-empty">No hay movimientos registrados en esta sesión</div>'; return;
   }
-  const totalVentas = salesHistory.reduce((s,v) => s + v.total, 0);
-  const numVentas = salesHistory.length;
+  const ingresos = movs.filter(m => m.type==='ingreso').reduce((s,m)=>s+m.amount,0);
+  const gastos = movs.filter(m => m.type==='gasto').reduce((s,m)=>s+m.amount,0);
+  const retiros = movs.filter(m => m.type==='retiro').reduce((s,m)=>s+m.amount,0);
+  const saldo = ingresos - gastos - retiros;
   el.innerHTML = `
-    <div class="caja-row"><span style="color:#666">Ventas realizadas</span><span style="font-weight:600">${numVentas}</span></div>
-    <div class="caja-row"><span style="color:#666">Ticket promedio</span><span>S/ ${(totalVentas/numVentas).toFixed(2)}</span></div>
-    ${salesHistory.map((v,i) => `<div class="caja-row"><span style="color:#999">Venta #${i+1} — ${v.time.toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'})}</span><span>S/ ${v.total.toFixed(2)}</span></div>`).join('')}
-    <div class="caja-row"><span>Total en caja</span><span style="color:#185fa5">S/ ${totalVentas.toFixed(2)}</span></div>
+    <div class="caja-row"><span style="color:#666">Ingresos</span><span style="font-weight:600;color:#3b6d11">S/ ${ingresos.toFixed(2)}</span></div>
+    <div class="caja-row"><span style="color:#666">Gastos</span><span style="font-weight:600;color:#a32d2d">S/ ${gastos.toFixed(2)}</span></div>
+    <div class="caja-row"><span style="color:#666">Retiros</span><span style="font-weight:600;color:#a32d2d">S/ ${retiros.toFixed(2)}</span></div>
+    ${movs.slice().reverse().map(m => `<div class="caja-row"><span style="color:#999">${m.desc} — ${new Date(m.date).toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'})}</span><span>${m.type==='ingreso'?'+':'-'} S/ ${m.amount.toFixed(2)}</span></div>`).join('')}
+    <div class="caja-row"><span>Saldo en caja</span><span style="color:#185fa5">S/ ${saldo.toFixed(2)}</span></div>
   `;
 }
 
+function openCajaMovModal(type) {
+  cajaMovType = type;
+  const titles = {ingreso:'Registrar ingreso', gasto:'Registrar gasto', retiro:'Registrar retiro'};
+  document.getElementById('modal-cajamov-title').textContent = titles[type];
+  document.getElementById('cajamov-amount').value = '';
+  document.getElementById('cajamov-desc').value = '';
+  document.getElementById('modal-cajamov-overlay').classList.add('show');
+}
+
+function saveCajaMov() {
+  const amount = parseFloat(document.getElementById('cajamov-amount').value);
+  const desc = document.getElementById('cajamov-desc').value.trim() || cajaMovType;
+  if (isNaN(amount) || amount <= 0) { showNotify('Ingresa un monto válido', 'danger'); return; }
+  cajaMovs.push({id: Date.now(), type: cajaMovType, amount, desc, date: new Date().toISOString()});
+  closeModalById('modal-cajamov-overlay');
+  renderCaja();
+  showNotify('Movimiento registrado');
+  saveData();
+}
+
 function cerrarCaja() {
-  if (!confirm('¿Cerrar caja? Se borrarán las ventas del día registradas en pantalla.')) return;
-  salesHistory = [];
+  if (!confirm('¿Cerrar caja? Se archivará el resumen de esta sesión en Reportes.')) return;
+  const movs = movsSesionActual();
+  const ingresos = movs.filter(m => m.type==='ingreso').reduce((s,m)=>s+m.amount,0);
+  const gastos = movs.filter(m => m.type==='gasto').reduce((s,m)=>s+m.amount,0);
+  const retiros = movs.filter(m => m.type==='retiro').reduce((s,m)=>s+m.amount,0);
+  cierres.push({
+    id: Date.now(), desde: cajaAbiertaDesde, hasta: new Date().toISOString(),
+    ingresos, gastos, retiros, saldo: ingresos - gastos - retiros
+  });
+  cajaAbiertaDesde = new Date().toISOString();
   renderCaja();
   showNotify('Caja cerrada');
+  saveData();
+}
+
+function renderClientes() {
+  renderClienteSelect();
+  const el = document.getElementById('clientes-list');
+  if (!clients.length) { el.innerHTML = '<div class="resumen-empty">No hay clientes registrados</div>'; return; }
+  el.innerHTML = clients.map(c => {
+    const saldo = c.saldo || 0;
+    const badge = saldo > 0 ? `<span class="badge-low">Debe S/ ${saldo.toFixed(2)}</span>` : '<span class="badge-ok">Al día</span>';
+    return `<div class="inv-item">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600;color:#1a1a18">${c.name}</div>
+        <div style="font-size:11px;color:#bbb">${c.phone || '—'}</div>
+      </div>
+      <div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:4px">${badge}</div>
+      <i class="ti ti-cash" onclick="openPagoModal('cliente',${c.id})" title="Registrar pago" style="font-size:16px;color:#bbb;cursor:pointer;padding:4px"></i>
+      <i class="ti ti-pencil" onclick="openClienteModal(${c.id})" title="Editar" style="font-size:16px;color:#bbb;cursor:pointer;padding:4px"></i>
+    </div>`;
+  }).join('');
+}
+
+function openClienteModal(id=null) {
+  editingClientId = id;
+  const c = id ? clients.find(x => x.id === id) : null;
+  document.getElementById('modal-cliente-title').textContent = id ? 'Editar cliente' : 'Nuevo cliente';
+  document.getElementById('cl-name').value = c ? c.name : '';
+  document.getElementById('cl-phone').value = c ? c.phone : '';
+  document.getElementById('cl-limite').value = c ? c.limite : '';
+  document.getElementById('cl-address').value = c ? c.address : '';
+  document.getElementById('modal-cliente-overlay').classList.add('show');
+}
+
+function saveCliente() {
+  const name = document.getElementById('cl-name').value.trim();
+  const phone = document.getElementById('cl-phone').value.trim();
+  const limite = parseFloat(document.getElementById('cl-limite').value) || 0;
+  const address = document.getElementById('cl-address').value.trim();
+  if (!name) { showNotify('Ingresa el nombre del cliente', 'danger'); return; }
+  if (editingClientId) {
+    Object.assign(clients.find(x => x.id === editingClientId), {name, phone, limite, address});
+    showNotify('Cliente actualizado');
+  } else {
+    clients.push({id: nextClientId++, name, phone, limite, address, saldo: 0});
+    showNotify('Cliente agregado');
+  }
+  closeModalById('modal-cliente-overlay');
+  renderClientes();
+  saveData();
+}
+
+function renderProveedores() {
+  renderCompraProductoSelect();
+  const el = document.getElementById('proveedores-list');
+  if (!providers.length) { el.innerHTML = '<div class="resumen-empty">No hay proveedores registrados</div>'; return; }
+  el.innerHTML = providers.map(p => {
+    const saldo = p.saldo || 0;
+    const badge = saldo > 0 ? `<span class="badge-low">Debemos S/ ${saldo.toFixed(2)}</span>` : '<span class="badge-ok">Al día</span>';
+    return `<div class="inv-item">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600;color:#1a1a18">${p.name}</div>
+        <div style="font-size:11px;color:#bbb">${p.phone || '—'} ${p.contact ? '· '+p.contact : ''}</div>
+      </div>
+      <div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:4px">${badge}</div>
+      <i class="ti ti-truck-delivery" onclick="openCompraModal(${p.id})" title="Ingreso de mercadería" style="font-size:16px;color:#bbb;cursor:pointer;padding:4px"></i>
+      <i class="ti ti-cash" onclick="openPagoModal('proveedor',${p.id})" title="Registrar pago" style="font-size:16px;color:#bbb;cursor:pointer;padding:4px"></i>
+      <i class="ti ti-pencil" onclick="openProveedorModal(${p.id})" title="Editar" style="font-size:16px;color:#bbb;cursor:pointer;padding:4px"></i>
+    </div>`;
+  }).join('');
+}
+
+function openProveedorModal(id=null) {
+  editingProviderId = id;
+  const p = id ? providers.find(x => x.id === id) : null;
+  document.getElementById('modal-proveedor-title').textContent = id ? 'Editar proveedor' : 'Nuevo proveedor';
+  document.getElementById('pv-name').value = p ? p.name : '';
+  document.getElementById('pv-phone').value = p ? p.phone : '';
+  document.getElementById('pv-contact').value = p ? p.contact : '';
+  document.getElementById('modal-proveedor-overlay').classList.add('show');
+}
+
+function saveProveedor() {
+  const name = document.getElementById('pv-name').value.trim();
+  const phone = document.getElementById('pv-phone').value.trim();
+  const contact = document.getElementById('pv-contact').value.trim();
+  if (!name) { showNotify('Ingresa el nombre del proveedor', 'danger'); return; }
+  if (editingProviderId) {
+    Object.assign(providers.find(x => x.id === editingProviderId), {name, phone, contact});
+    showNotify('Proveedor actualizado');
+  } else {
+    providers.push({id: nextProviderId++, name, phone, contact, saldo: 0});
+    showNotify('Proveedor agregado');
+  }
+  closeModalById('modal-proveedor-overlay');
+  renderProveedores();
+  saveData();
+}
+
+function renderCompraProductoSelect() {
+  const sel = document.getElementById('compra-producto');
+  if (!sel) return;
+  sel.innerHTML = products.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+}
+
+function openCompraModal(providerId) {
+  pagoTarget = {type:'compra', id: providerId};
+  renderCompraProductoSelect();
+  document.getElementById('compra-cantidad').value = '';
+  document.getElementById('compra-costo').value = '';
+  document.getElementById('modal-compra-overlay').classList.add('show');
+}
+
+function saveCompra() {
+  const productoId = Number(document.getElementById('compra-producto').value);
+  const cantidad = parseInt(document.getElementById('compra-cantidad').value);
+  const costo = parseFloat(document.getElementById('compra-costo').value);
+  if (!productoId || isNaN(cantidad) || cantidad <= 0 || isNaN(costo) || costo < 0) {
+    showNotify('Completa producto, cantidad y costo', 'danger'); return;
+  }
+  const prod = products.find(p => p.id === productoId);
+  const provider = providers.find(p => p.id === pagoTarget.id);
+  const total = cantidad * costo;
+  prod.stock += cantidad;
+  provider.saldo = (provider.saldo || 0) + total;
+  purchases.push({id: Date.now(), providerId: provider.id, productId: prod.id, productName: prod.name, cantidad, costo, total, date: new Date().toISOString()});
+  closeModalById('modal-compra-overlay');
+  renderProveedores();
+  if (currentTab === 'inventario') renderInventario();
+  showNotify('Compra registrada — stock actualizado');
+  saveData();
+}
+
+function openPagoModal(type, id) {
+  pagoTarget = {type, id};
+  document.getElementById('modal-pago-title').textContent = type === 'cliente' ? 'Registrar pago de cliente' : 'Registrar pago a proveedor';
+  document.getElementById('pago-amount').value = '';
+  document.getElementById('modal-pago-overlay').classList.add('show');
+}
+
+function savePago() {
+  const amount = parseFloat(document.getElementById('pago-amount').value);
+  if (isNaN(amount) || amount <= 0) { showNotify('Ingresa un monto válido', 'danger'); return; }
+  if (pagoTarget.type === 'cliente') {
+    const c = clients.find(x => x.id === pagoTarget.id);
+    c.saldo = Math.max(0, (c.saldo || 0) - amount);
+    clientPayments.push({id: Date.now(), clientId: c.id, amount, date: new Date().toISOString()});
+    cajaMovs.push({id: Date.now()+1, type:'ingreso', amount, desc: 'Cobranza — ' + c.name, date: new Date().toISOString()});
+    renderClientes();
+    showNotify('Pago de cliente registrado');
+  } else {
+    const p = providers.find(x => x.id === pagoTarget.id);
+    p.saldo = Math.max(0, (p.saldo || 0) - amount);
+    providerPayments.push({id: Date.now(), providerId: p.id, amount, date: new Date().toISOString()});
+    cajaMovs.push({id: Date.now()+1, type:'gasto', amount, desc: 'Pago a proveedor — ' + p.name, date: new Date().toISOString()});
+    renderProveedores();
+    showNotify('Pago a proveedor registrado');
+  }
+  closeModalById('modal-pago-overlay');
+  saveData();
+}
+
+function renderUsuarios() {
+  renderUsuarioActivoSelect();
+  const el = document.getElementById('usuarios-list');
+  el.innerHTML = users.map(u => `<div class="inv-item">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600;color:#1a1a18">${u.name}</div>
+        <div style="font-size:11px;color:#bbb">${u.role}</div>
+      </div>
+      <i class="ti ti-pencil" onclick="openUsuarioModal(${u.id})" title="Editar" style="font-size:16px;color:#bbb;cursor:pointer;padding:4px"></i>
+    </div>`).join('');
+}
+
+function renderUsuarioActivoSelect() {
+  const sel = document.getElementById('usuario-activo-select');
+  if (!sel) return;
+  sel.innerHTML = users.map(u => `<option value="${u.id}">${u.name}</option>`).join('');
+  sel.value = activeUserId;
+}
+
+function setUsuarioActivo(id) {
+  activeUserId = Number(id);
+  saveData();
+}
+
+function openUsuarioModal(id=null) {
+  editingUserId = id;
+  const u = id ? users.find(x => x.id === id) : null;
+  document.getElementById('modal-usuario-title').textContent = id ? 'Editar usuario' : 'Nuevo usuario';
+  document.getElementById('us-name').value = u ? u.name : '';
+  document.getElementById('us-role').value = u ? u.role : 'Vendedor';
+  document.getElementById('modal-usuario-overlay').classList.add('show');
+}
+
+function saveUsuario() {
+  const name = document.getElementById('us-name').value.trim();
+  const role = document.getElementById('us-role').value;
+  if (!name) { showNotify('Ingresa el nombre del usuario', 'danger'); return; }
+  if (editingUserId) {
+    Object.assign(users.find(x => x.id === editingUserId), {name, role});
+    showNotify('Usuario actualizado');
+  } else {
+    users.push({id: nextUserId++, name, role});
+    showNotify('Usuario agregado');
+  }
+  closeModalById('modal-usuario-overlay');
+  renderUsuarios();
+  renderUsuarioActivoSelect();
+  saveData();
+}
+
+function setReporte(r) {
+  currentReporte = r;
+  document.querySelectorAll('#tab-reportes .tabs .tab').forEach((el,i) => {
+    el.classList.toggle('active', ['ventas','caja','clientes','proveedores','articulos'][i] === r);
+  });
+  renderReportes();
+}
+
+function renderReportes() {
+  const el = document.getElementById('reportes-section');
+  if (currentReporte === 'ventas') {
+    if (!salesHistory.length) { el.innerHTML = '<div class="resumen-empty">No hay ventas registradas</div>'; return; }
+    const totalVentas = salesHistory.reduce((s,v)=>s+v.total,0);
+    el.innerHTML = `
+      <div class="caja-row"><span style="color:#666">Ventas realizadas</span><span style="font-weight:600">${salesHistory.length}</span></div>
+      <div class="caja-row"><span style="color:#666">Ticket promedio</span><span>S/ ${(totalVentas/salesHistory.length).toFixed(2)}</span></div>
+      ${salesHistory.slice().reverse().map(v => `<div class="caja-row"><span style="color:#999">${new Date(v.time).toLocaleString('es-PE',{dateStyle:'short',timeStyle:'short'})} — ${v.paymentType||'efectivo'}${v.clientName?' · '+v.clientName:''}</span><span>S/ ${v.total.toFixed(2)}</span></div>`).join('')}
+      <div class="caja-row"><span>Total vendido</span><span style="color:#185fa5">S/ ${totalVentas.toFixed(2)}</span></div>
+    `;
+  } else if (currentReporte === 'caja') {
+    if (!cierres.length) { el.innerHTML = '<div class="resumen-empty">No hay cierres de caja registrados</div>'; return; }
+    el.innerHTML = cierres.slice().reverse().map(c => `<div class="caja-row"><span style="color:#999">${new Date(c.hasta).toLocaleString('es-PE',{dateStyle:'short',timeStyle:'short'})}</span><span>Ingresos S/ ${c.ingresos.toFixed(2)} · Gastos S/ ${c.gastos.toFixed(2)} · Retiros S/ ${c.retiros.toFixed(2)} · Saldo S/ ${c.saldo.toFixed(2)}</span></div>`).join('');
+  } else if (currentReporte === 'clientes') {
+    if (!clients.length) { el.innerHTML = '<div class="resumen-empty">No hay clientes registrados</div>'; return; }
+    const totalDeuda = clients.reduce((s,c)=>s+(c.saldo||0),0);
+    el.innerHTML = clients.map(c => `<div class="caja-row"><span style="color:#999">${c.name}</span><span>S/ ${(c.saldo||0).toFixed(2)}</span></div>`).join('') +
+      `<div class="caja-row"><span>Total por cobrar</span><span style="color:#185fa5">S/ ${totalDeuda.toFixed(2)}</span></div>`;
+  } else if (currentReporte === 'proveedores') {
+    if (!providers.length) { el.innerHTML = '<div class="resumen-empty">No hay proveedores registrados</div>'; return; }
+    const totalDeuda = providers.reduce((s,p)=>s+(p.saldo||0),0);
+    el.innerHTML = providers.map(p => `<div class="caja-row"><span style="color:#999">${p.name}</span><span>S/ ${(p.saldo||0).toFixed(2)}</span></div>`).join('') +
+      `<div class="caja-row"><span>Total por pagar</span><span style="color:#185fa5">S/ ${totalDeuda.toFixed(2)}</span></div>`;
+  } else if (currentReporte === 'articulos') {
+    const valorInventario = products.reduce((s,p)=>s+p.price*p.stock,0);
+    el.innerHTML = products.map(p => `<div class="caja-row"><span style="color:#999">${p.name} (${p.stock} uds)</span><span>S/ ${(p.price*p.stock).toFixed(2)}</span></div>`).join('') +
+      `<div class="caja-row"><span>Valor total del inventario</span><span style="color:#185fa5">S/ ${valorInventario.toFixed(2)}</span></div>`;
+  }
 }
 
 function showNotify(msg, type='') {
@@ -243,6 +641,9 @@ function showNotify(msg, type='') {
   el._t = setTimeout(() => el.classList.remove('show'), 2200);
 }
 
+loadData();
 renderProducts();
+renderClienteSelect();
+renderUsuarioActivoSelect();
 renderCart();
 document.getElementById('barcode-input').focus();

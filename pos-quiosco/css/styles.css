@@ -78,3 +78,6 @@ body{font-family:system-ui,sans-serif;background:#f0efea;color:#1a1a18;min-heigh
 .add-prod-btn:hover{border-color:#185fa5;color:#185fa5}
 .cerrar-caja-btn{margin-top:1rem;height:40px;width:100%;border-radius:8px;border:1px solid #f7c1c1;background:#fcebeb;color:#a32d2d;font-size:13px;cursor:pointer;font-weight:600}
 .cerrar-caja-btn:hover{background:#f7c1c1}
+.fiado-row{display:flex;align-items:center;gap:6px;font-size:12px;color:#666;cursor:pointer}
+#usuario-activo-select{height:42px;padding:0 8px;border-radius:8px;border:1px solid #bbb;background:#fff;color:#1a1a18;font-size:13px;max-width:150px}
+#cart-cliente-select{height:38px;font-size:13px;padding:0 8px;border-radius:8px;border:1px solid #ccc;background:#fff;color:#1a1a18;outline:none}

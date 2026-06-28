@@ -18,7 +18,11 @@
     <div class="tabs">
       <div class="tab active" onclick="setTab('venta')">Venta</div>
       <div class="tab" onclick="setTab('inventario')">Inventario</div>
-      <div class="tab" onclick="setTab('caja')">Cierre de caja</div>
+      <div class="tab" onclick="setTab('clientes')">Clientes</div>
+      <div class="tab" onclick="setTab('proveedores')">Proveedores</div>
+      <div class="tab" onclick="setTab('caja')">Caja</div>
+      <div class="tab" onclick="setTab('reportes')">Reportes</div>
+      <div class="tab" onclick="setTab('usuarios')">Usuarios</div>
     </div>
 
     <div id="tab-venta">
@@ -27,6 +31,7 @@
           <i class="ti ti-barcode"></i>
           <input type="text" id="barcode-input" placeholder="Escanea o escribe el código de barras..." autofocus autocomplete="off" oninput="onBarcode(this.value)" onkeydown="onKey(event)">
         </div>
+        <select id="usuario-activo-select" title="Vendedor activo" onchange="setUsuarioActivo(this.value)"></select>
         <button class="add-prod-btn" onclick="openAddModal()"><i class="ti ti-plus"></i> Producto</button>
       </div>
       <div class="section-label">Productos — haz clic para agregar al carrito</div>
@@ -41,10 +46,53 @@
       <div id="inventario-list" style="display:flex;flex-direction:column;gap:6px"></div>
     </div>
 
+    <div id="tab-clientes" style="display:none">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">
+        <div class="section-label" style="margin:0">Clientes y cuenta corriente</div>
+        <button class="add-prod-btn" onclick="openClienteModal()"><i class="ti ti-plus"></i> Cliente</button>
+      </div>
+      <div id="clientes-list" style="display:flex;flex-direction:column;gap:6px"></div>
+    </div>
+
+    <div id="tab-proveedores" style="display:none">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">
+        <div class="section-label" style="margin:0">Proveedores</div>
+        <button class="add-prod-btn" onclick="openProveedorModal()"><i class="ti ti-plus"></i> Proveedor</button>
+      </div>
+      <div id="proveedores-list" style="display:flex;flex-direction:column;gap:6px"></div>
+    </div>
+
     <div id="tab-caja" style="display:none">
-      <div class="section-label" style="margin-bottom:.75rem">Resumen del día</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">
+        <div class="section-label" style="margin:0">Caja — sesión actual</div>
+        <div style="display:flex;gap:6px">
+          <button class="add-prod-btn" onclick="openCajaMovModal('ingreso')"><i class="ti ti-arrow-down"></i> Ingreso</button>
+          <button class="add-prod-btn" onclick="openCajaMovModal('gasto')"><i class="ti ti-arrow-up"></i> Gasto</button>
+          <button class="add-prod-btn" onclick="openCajaMovModal('retiro')"><i class="ti ti-cash"></i> Retiro</button>
+        </div>
+      </div>
       <div id="caja-section"></div>
-      <button class="cerrar-caja-btn" onclick="cerrarCaja()"><i class="ti ti-lock"></i> Cerrar caja y reiniciar</button>
+      <button class="cerrar-caja-btn" onclick="cerrarCaja()"><i class="ti ti-lock"></i> Cerrar caja</button>
+    </div>
+
+    <div id="tab-reportes" style="display:none">
+      <div class="section-label" style="margin-bottom:.75rem">Reportes</div>
+      <div class="tabs" style="margin-bottom:.75rem">
+        <div class="tab active" onclick="setReporte('ventas')">Ventas</div>
+        <div class="tab" onclick="setReporte('caja')">Caja</div>
+        <div class="tab" onclick="setReporte('clientes')">Clientes</div>
+        <div class="tab" onclick="setReporte('proveedores')">Proveedores</div>
+        <div class="tab" onclick="setReporte('articulos')">Artículos</div>
+      </div>
+      <div id="reportes-section"></div>
+    </div>
+
+    <div id="tab-usuarios" style="display:none">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">
+        <div class="section-label" style="margin:0">Usuarios</div>
+        <button class="add-prod-btn" onclick="openUsuarioModal()"><i class="ti ti-plus"></i> Usuario</button>
+      </div>
+      <div id="usuarios-list" style="display:flex;flex-direction:column;gap:6px"></div>
     </div>
   </div>
 
@@ -67,6 +115,13 @@
         <span class="total-amount" id="total-amount">S/ 0.00</span>
       </div>
       <div class="efectivo-row">
+        <label>Cliente</label>
+        <select id="cart-cliente-select" onchange="onCarritoClienteChange()" style="flex:1"></select>
+      </div>
+      <label class="fiado-row" id="fiado-row" style="display:none">
+        <input type="checkbox" id="fiado-check" onchange="calcVuelto()"> Vender a cuenta corriente (fiado)
+      </label>
+      <div class="efectivo-row" id="efectivo-row-wrap">
         <label>Efectivo S/</label>
         <input type="number" id="efectivo-input" placeholder="0.00" min="0" step="0.50" oninput="calcVuelto()">
       </div>
@@ -106,6 +161,135 @@
     <div class="modal-btns">
       <button onclick="closeModal()">Cancelar</button>
       <button class="btn-save" onclick="saveProduct()"><i class="ti ti-device-floppy"></i> Guardar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-cliente-overlay" onclick="closeModalOuterById(event,'modal-cliente-overlay')">
+  <div class="modal">
+    <h3 id="modal-cliente-title">Nuevo cliente</h3>
+    <div>
+      <div class="modal-label">Nombre</div>
+      <input type="text" id="cl-name" placeholder="Nombre del cliente">
+    </div>
+    <div class="modal-row">
+      <div>
+        <div class="modal-label">Teléfono</div>
+        <input type="text" id="cl-phone" placeholder="999999999">
+      </div>
+      <div>
+        <div class="modal-label">Límite de crédito (S/)</div>
+        <input type="number" id="cl-limite" placeholder="0.00" min="0" step="1">
+      </div>
+    </div>
+    <div>
+      <div class="modal-label">Dirección</div>
+      <input type="text" id="cl-address" placeholder="Dirección (opcional)">
+    </div>
+    <div class="modal-btns">
+      <button onclick="closeModalById('modal-cliente-overlay')">Cancelar</button>
+      <button class="btn-save" onclick="saveCliente()"><i class="ti ti-device-floppy"></i> Guardar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-pago-overlay" onclick="closeModalOuterById(event,'modal-pago-overlay')">
+  <div class="modal">
+    <h3 id="modal-pago-title">Registrar pago</h3>
+    <div>
+      <div class="modal-label">Monto (S/)</div>
+      <input type="number" id="pago-amount" placeholder="0.00" min="0" step="0.50">
+    </div>
+    <div class="modal-btns">
+      <button onclick="closeModalById('modal-pago-overlay')">Cancelar</button>
+      <button class="btn-save" onclick="savePago()"><i class="ti ti-device-floppy"></i> Registrar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-proveedor-overlay" onclick="closeModalOuterById(event,'modal-proveedor-overlay')">
+  <div class="modal">
+    <h3 id="modal-proveedor-title">Nuevo proveedor</h3>
+    <div>
+      <div class="modal-label">Nombre / Razón social</div>
+      <input type="text" id="pv-name" placeholder="Nombre del proveedor">
+    </div>
+    <div class="modal-row">
+      <div>
+        <div class="modal-label">Teléfono</div>
+        <input type="text" id="pv-phone" placeholder="999999999">
+      </div>
+      <div>
+        <div class="modal-label">Contacto</div>
+        <input type="text" id="pv-contact" placeholder="Persona de contacto">
+      </div>
+    </div>
+    <div class="modal-btns">
+      <button onclick="closeModalById('modal-proveedor-overlay')">Cancelar</button>
+      <button class="btn-save" onclick="saveProveedor()"><i class="ti ti-device-floppy"></i> Guardar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-compra-overlay" onclick="closeModalOuterById(event,'modal-compra-overlay')">
+  <div class="modal">
+    <h3>Ingreso de mercadería</h3>
+    <div>
+      <div class="modal-label">Producto</div>
+      <select id="compra-producto"></select>
+    </div>
+    <div class="modal-row">
+      <div>
+        <div class="modal-label">Cantidad</div>
+        <input type="number" id="compra-cantidad" placeholder="0" min="1" step="1">
+      </div>
+      <div>
+        <div class="modal-label">Costo unitario (S/)</div>
+        <input type="number" id="compra-costo" placeholder="0.00" min="0" step="0.10">
+      </div>
+    </div>
+    <div class="modal-btns">
+      <button onclick="closeModalById('modal-compra-overlay')">Cancelar</button>
+      <button class="btn-save" onclick="saveCompra()"><i class="ti ti-device-floppy"></i> Registrar compra</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-cajamov-overlay" onclick="closeModalOuterById(event,'modal-cajamov-overlay')">
+  <div class="modal">
+    <h3 id="modal-cajamov-title">Movimiento de caja</h3>
+    <div>
+      <div class="modal-label">Monto (S/)</div>
+      <input type="number" id="cajamov-amount" placeholder="0.00" min="0" step="0.50">
+    </div>
+    <div>
+      <div class="modal-label">Descripción</div>
+      <input type="text" id="cajamov-desc" placeholder="Descripción">
+    </div>
+    <div class="modal-btns">
+      <button onclick="closeModalById('modal-cajamov-overlay')">Cancelar</button>
+      <button class="btn-save" onclick="saveCajaMov()"><i class="ti ti-device-floppy"></i> Registrar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-usuario-overlay" onclick="closeModalOuterById(event,'modal-usuario-overlay')">
+  <div class="modal">
+    <h3 id="modal-usuario-title">Nuevo usuario</h3>
+    <div>
+      <div class="modal-label">Nombre</div>
+      <input type="text" id="us-name" placeholder="Nombre del usuario">
+    </div>
+    <div>
+      <div class="modal-label">Rol</div>
+      <select id="us-role">
+        <option value="Administrador">Administrador</option>
+        <option value="Vendedor">Vendedor</option>
+      </select>
+    </div>
+    <div class="modal-btns">
+      <button onclick="closeModalById('modal-usuario-overlay')">Cancelar</button>
+      <button class="btn-save" onclick="saveUsuario()"><i class="ti ti-device-floppy"></i> Guardar</button>
     </div>
   </div>
 </div>
