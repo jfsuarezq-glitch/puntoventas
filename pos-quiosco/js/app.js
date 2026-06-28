@@ -100,6 +100,7 @@ function setTab(t) {
   if (t==='canchas') renderCalendario();
   if (t==='reportes') renderReportes();
   if (t==='usuarios') renderUsuarios();
+  document.getElementById('cart-panel').style.display = t==='venta' ? '' : 'none';
 }
 
 function prodCardHtml(p) {
