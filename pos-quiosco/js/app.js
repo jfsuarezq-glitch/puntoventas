@@ -147,7 +147,7 @@ function addToCart(id) {
     if (existing.qty >= prod.stock) { showNotify('Stock máximo alcanzado', 'danger'); return; }
     existing.qty++;
   } else {
-    cart.push({id, name:prod.name, price:prod.price, qty:1});
+    cart.push({id, name:prod.name, price:prod.price, qty:1, descuento:0});
   }
   renderCart();
   showNotify(prod.name + ' agregado');
@@ -181,9 +181,13 @@ function onCarritoClienteChange() {
   calcVuelto();
 }
 
+function cartTotal() {
+  return cart.reduce((s,c) => s + Math.max(0, c.price * c.qty - (c.descuento||0)), 0);
+}
+
 function renderCart() {
   const el = document.getElementById('cart-items');
-  const total = cart.reduce((s,c) => s + c.price * c.qty, 0);
+  const total = cartTotal();
   const count = cart.reduce((s,c) => s + c.qty, 0);
   document.getElementById('cart-count').textContent = count + ' ítem' + (count!==1?'s':'');
   document.getElementById('total-amount').textContent = 'S/ ' + total.toFixed(2);
@@ -198,16 +202,31 @@ function renderCart() {
       <div class="cart-item-info">
         <div class="cart-item-name">${item.name}</div>
         <div class="cart-item-price">S/ ${item.price.toFixed(2)} c/u</div>
+        <div class="cart-item-desc"><label>Desc. S/</label><input type="number" class="desc-input" min="0" step="0.10" value="${item.descuento || ''}" placeholder="0.00" oninput="updateDescuento(${item.id},this.value)"></div>
       </div>
       <div class="qty-ctrl">
         <button class="qty-btn" onclick="changeQty(${item.id},-1)">−</button>
         <span class="qty-num">${item.qty}</span>
         <button class="qty-btn" onclick="changeQty(${item.id},1)">+</button>
       </div>
-      <div class="item-subtotal">S/ ${(item.price*item.qty).toFixed(2)}</div>
+      <div class="item-subtotal" data-id="${item.id}">S/ ${Math.max(0,item.price*item.qty-(item.descuento||0)).toFixed(2)}</div>
       <i class="ti ti-x del-btn" onclick="removeItem(${item.id})" title="Quitar"></i>
     </div>
   `).join('');
+}
+
+function updateDescuento(id, val) {
+  const item = cart.find(c => c.id === id);
+  if (!item) return;
+  let d = parseFloat(val);
+  if (isNaN(d) || d < 0) d = 0;
+  const max = item.price * item.qty;
+  if (d > max) d = max;
+  item.descuento = d;
+  const subEl = document.querySelector(`.item-subtotal[data-id="${id}"]`);
+  if (subEl) subEl.textContent = 'S/ ' + (max - d).toFixed(2);
+  document.getElementById('total-amount').textContent = 'S/ ' + cartTotal().toFixed(2);
+  calcVuelto();
 }
 
 function isFiado() {
@@ -216,7 +235,7 @@ function isFiado() {
 }
 
 function calcVuelto() {
-  const total = cart.reduce((s,c) => s + c.price * c.qty, 0);
+  const total = cartTotal();
   const row = document.getElementById('vuelto-row');
   const wrap = document.getElementById('efectivo-row-wrap');
   if (isFiado()) {
@@ -235,7 +254,7 @@ function calcVuelto() {
 }
 
 function cobrar() {
-  const total = cart.reduce((s,c) => s + c.price * c.qty, 0);
+  const total = cartTotal();
   const fiado = isFiado();
   const clienteId = document.getElementById('cart-cliente-select').value;
   const efectivo = parseFloat(document.getElementById('efectivo-input').value) || 0;
@@ -673,10 +692,19 @@ function renderReportes() {
   if (currentReporte === 'ventas') {
     if (!salesHistory.length) { el.innerHTML = '<div class="resumen-empty">No hay ventas registradas</div>'; return; }
     const totalVentas = salesHistory.reduce((s,v)=>s+v.total,0);
+    const lineRows = [];
+    salesHistory.slice().reverse().forEach(v => {
+      const fecha = new Date(v.time).toLocaleString('es-PE',{dateStyle:'short',timeStyle:'short'});
+      (v.items||[]).forEach(it => {
+        const desc = it.descuento || 0;
+        const lineTotal = it.price*it.qty - desc;
+        lineRows.push(`<div class="caja-row"><span style="color:#999">${fecha} — ${it.name} · ${it.qty} x S/ ${it.price.toFixed(2)}${desc ? ' · desc S/ '+desc.toFixed(2) : ''}${v.clientName?' · '+v.clientName:''}</span><span>S/ ${lineTotal.toFixed(2)}</span></div>`);
+      });
+    });
     el.innerHTML = `
       <div class="caja-row"><span style="color:#666">Ventas realizadas</span><span style="font-weight:600">${salesHistory.length}</span></div>
       <div class="caja-row"><span style="color:#666">Ticket promedio</span><span>S/ ${(totalVentas/salesHistory.length).toFixed(2)}</span></div>
-      ${salesHistory.slice().reverse().map(v => `<div class="caja-row"><span style="color:#999">${new Date(v.time).toLocaleString('es-PE',{dateStyle:'short',timeStyle:'short'})} — ${v.paymentType||'efectivo'}${v.clientName?' · '+v.clientName:''}</span><span>S/ ${v.total.toFixed(2)}</span></div>`).join('')}
+      ${lineRows.join('')}
       <div class="caja-row"><span>Total vendido</span><span style="color:#185fa5">S/ ${totalVentas.toFixed(2)}</span></div>
     `;
   } else if (currentReporte === 'caja') {
@@ -722,13 +750,14 @@ function exportReporteExcel() {
   let filename = 'reporte.csv';
   if (currentReporte === 'ventas') {
     filename = 'reporte_ventas.csv';
-    rows.push(['Fecha','Pago','Cliente','Total']);
-    salesHistory.slice().reverse().forEach(v => rows.push([
-      new Date(v.time).toLocaleString('es-PE',{dateStyle:'short',timeStyle:'short'}),
-      v.paymentType || 'efectivo',
-      v.clientName || '',
-      v.total.toFixed(2)
-    ]));
+    rows.push(['Fecha y hora','Producto','Precio unitario','Unidades vendidas','Descuento aplicado','Precio total','Pago','Cliente']);
+    salesHistory.slice().reverse().forEach(v => {
+      const fecha = new Date(v.time).toLocaleString('es-PE',{dateStyle:'short',timeStyle:'short'});
+      (v.items||[]).forEach(it => {
+        const desc = it.descuento || 0;
+        rows.push([fecha, it.name, it.price.toFixed(2), it.qty, desc.toFixed(2), (it.price*it.qty-desc).toFixed(2), v.paymentType || 'efectivo', v.clientName || '']);
+      });
+    });
   } else if (currentReporte === 'caja') {
     filename = 'reporte_caja.csv';
     rows.push(['Cierre','Ingresos','Gastos','Retiros','Saldo']);
