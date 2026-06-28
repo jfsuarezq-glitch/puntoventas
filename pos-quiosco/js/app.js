@@ -939,22 +939,46 @@ function saveReserva() {
   const ocupado = reservas.some(r => r.canchaId === canchaId && r.fecha === fecha && r.id !== editingReservaId &&
     hora < r.hora + r.duracion && hora + duracion > r.hora);
   if (ocupado) { showNotify('Ese horario ya está reservado en esa cancha', 'danger'); return; }
+  let reserva;
   if (editingReservaId) {
-    const r = reservas.find(x => x.id === editingReservaId);
-    Object.assign(r, {canchaId, fecha, hora, duracion, cliente, total, pagado});
+    reserva = reservas.find(x => x.id === editingReservaId);
+    Object.assign(reserva, {canchaId, fecha, hora, duracion, cliente, total, pagado});
     showNotify('Reserva actualizada');
   } else {
-    reservas.push({id: nextReservaId++, canchaId, fecha, hora, duracion, cliente, total, pagado});
+    reserva = {id: nextReservaId++, canchaId, fecha, hora, duracion, cliente, total, pagado, cajaMovId:null};
+    reservas.push(reserva);
     showNotify('Reserva creada');
   }
+  sincronizarCajaReserva(reserva);
   closeModalById('modal-reserva-overlay');
   renderCalendario();
   saveData();
 }
 
+function sincronizarCajaReserva(reserva) {
+  const cancha = canchas.find(c => c.id === reserva.canchaId);
+  const desc = 'Alquiler ' + (cancha ? cancha.name : 'cancha') + (reserva.cliente ? ' - ' + reserva.cliente : '');
+  if (reserva.pagado) {
+    if (reserva.cajaMovId && cajaMovs.find(m => m.id === reserva.cajaMovId)) {
+      const mov = cajaMovs.find(m => m.id === reserva.cajaMovId);
+      mov.amount = reserva.total;
+      mov.desc = desc;
+    } else {
+      const movId = Date.now() + Math.floor(Math.random()*1000);
+      cajaMovs.push({id: movId, type:'ingreso', amount: reserva.total, desc, date: new Date().toISOString(), auto:true});
+      reserva.cajaMovId = movId;
+    }
+  } else if (reserva.cajaMovId) {
+    cajaMovs = cajaMovs.filter(m => m.id !== reserva.cajaMovId);
+    reserva.cajaMovId = null;
+  }
+}
+
 function deleteReserva() {
   if (!editingReservaId) return;
   if (!confirm('¿Eliminar esta reserva?')) return;
+  const reserva = reservas.find(r => r.id === editingReservaId);
+  if (reserva && reserva.cajaMovId) cajaMovs = cajaMovs.filter(m => m.id !== reserva.cajaMovId);
   reservas = reservas.filter(r => r.id !== editingReservaId);
   closeModalById('modal-reserva-overlay');
   renderCalendario();
