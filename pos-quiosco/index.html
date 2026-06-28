@@ -21,6 +21,7 @@
       <div class="tab" onclick="setTab('clientes')">Clientes</div>
       <div class="tab" onclick="setTab('proveedores')">Proveedores</div>
       <div class="tab" onclick="setTab('caja')">Caja</div>
+      <div class="tab" onclick="setTab('canchas')">Canchas</div>
       <div class="tab" onclick="setTab('reportes')">Reportes</div>
       <div class="tab" onclick="setTab('usuarios')">Usuarios</div>
     </div>
@@ -75,6 +76,18 @@
       </div>
       <div id="caja-section"></div>
       <button class="cerrar-caja-btn" onclick="cerrarCaja()"><i class="ti ti-lock"></i> Cerrar caja</button>
+    </div>
+
+    <div id="tab-canchas" style="display:none">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem;flex-wrap:wrap;gap:8px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <button class="qty-btn" onclick="calMoverDia(-1)">‹</button>
+          <input type="date" id="cal-fecha" onchange="renderCalendario()">
+          <button class="qty-btn" onclick="calMoverDia(1)">›</button>
+        </div>
+        <button class="add-prod-btn" onclick="openCanchaModal()"><i class="ti ti-plus"></i> Cancha</button>
+      </div>
+      <div id="cal-grid-wrap" style="overflow-x:auto"></div>
     </div>
 
     <div id="tab-reportes" style="display:none">
@@ -301,6 +314,74 @@
     <div class="modal-btns">
       <button onclick="closeModalById('modal-usuario-overlay')">Cancelar</button>
       <button class="btn-save" onclick="saveUsuario()"><i class="ti ti-device-floppy"></i> Guardar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-cancha-overlay" onclick="closeModalOuterById(event,'modal-cancha-overlay')">
+  <div class="modal">
+    <h3 id="modal-cancha-title">Nueva cancha</h3>
+    <div>
+      <div class="modal-label">Nombre</div>
+      <input type="text" id="ca-name" placeholder="Cancha Vóley">
+    </div>
+    <div>
+      <div class="modal-label">Precio por hora (S/)</div>
+      <input type="number" id="ca-price" placeholder="40.00" min="0" step="1">
+    </div>
+    <div class="modal-btns">
+      <button onclick="closeModalById('modal-cancha-overlay')">Cancelar</button>
+      <button class="btn-save" onclick="saveCancha()"><i class="ti ti-device-floppy"></i> Guardar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-reserva-overlay" onclick="closeModalOuterById(event,'modal-reserva-overlay')">
+  <div class="modal">
+    <h3 id="modal-reserva-title">Nueva reserva</h3>
+    <div class="modal-row">
+      <div>
+        <div class="modal-label">Cancha</div>
+        <select id="rv-cancha" onchange="onReservaDuracionChange()"></select>
+      </div>
+      <div>
+        <div class="modal-label">Fecha</div>
+        <input type="date" id="rv-fecha">
+      </div>
+    </div>
+    <div class="modal-row">
+      <div>
+        <div class="modal-label">Hora inicio</div>
+        <select id="rv-hora"></select>
+      </div>
+      <div>
+        <div class="modal-label">Duración (horas)</div>
+        <select id="rv-duracion" onchange="onReservaDuracionChange()">
+          <option value="1">1</option>
+          <option value="2">2</option>
+          <option value="3">3</option>
+        </select>
+      </div>
+    </div>
+    <div>
+      <div class="modal-label">Cliente</div>
+      <input type="text" id="rv-cliente" placeholder="Nombre del cliente">
+    </div>
+    <div class="modal-row">
+      <div>
+        <div class="modal-label">Total (S/)</div>
+        <input type="number" id="rv-total" min="0" step="1">
+      </div>
+      <div style="display:flex;align-items:flex-end;padding-bottom:8px">
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:#555;cursor:pointer">
+          <input type="checkbox" id="rv-pagado" style="width:auto"> Pagado
+        </label>
+      </div>
+    </div>
+    <div class="modal-btns">
+      <button id="rv-delete-btn" onclick="deleteReserva()" style="color:#a32d2d;display:none">Eliminar</button>
+      <button onclick="closeModalById('modal-reserva-overlay')">Cancelar</button>
+      <button class="btn-save" onclick="saveReserva()"><i class="ti ti-device-floppy"></i> Guardar</button>
     </div>
   </div>
 </div>

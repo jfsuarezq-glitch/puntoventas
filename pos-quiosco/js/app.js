@@ -21,14 +21,19 @@ let clientPayments = [];
 let providerPayments = [];
 let cierres = [];
 let cajaAbiertaDesde = new Date().toISOString();
+let canchas = [{id:1,name:'Cancha Vóley',price:40},{id:2,name:'Cancha Fútbol',price:60}];
+let reservas = [];
 let nextId = 9;
 let nextClientId = 1;
 let nextProviderId = 1;
 let nextUserId = 2;
+let nextCanchaId = 3;
+let nextReservaId = 1;
 let editingId = null;
 let editingClientId = null;
 let editingProviderId = null;
 let editingUserId = null;
+let editingReservaId = null;
 let pagoTarget = null;
 let cajaMovType = null;
 let activeUserId = 1;
@@ -39,8 +44,8 @@ let currentReporte = 'ventas';
 function saveData() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify({
     products, salesHistory, clients, providers, users, purchases, cajaMovs,
-    clientPayments, providerPayments, cierres, cajaAbiertaDesde,
-    nextId, nextClientId, nextProviderId, nextUserId, activeUserId
+    clientPayments, providerPayments, cierres, cajaAbiertaDesde, canchas, reservas,
+    nextId, nextClientId, nextProviderId, nextUserId, nextCanchaId, nextReservaId, activeUserId
   }));
 }
 
@@ -60,10 +65,14 @@ function loadData() {
     providerPayments = d.providerPayments || [];
     cierres = d.cierres || [];
     cajaAbiertaDesde = d.cajaAbiertaDesde || cajaAbiertaDesde;
+    canchas = d.canchas && d.canchas.length ? d.canchas : canchas;
+    reservas = d.reservas || [];
     nextId = d.nextId || nextId;
     nextClientId = d.nextClientId || nextClientId;
     nextProviderId = d.nextProviderId || nextProviderId;
     nextUserId = d.nextUserId || nextUserId;
+    nextCanchaId = d.nextCanchaId || nextCanchaId;
+    nextReservaId = d.nextReservaId || nextReservaId;
     activeUserId = d.activeUserId || activeUserId;
   } catch (e) {}
 }
@@ -78,7 +87,7 @@ function closeModalOuterById(e, id) {
 
 function setTab(t) {
   currentTab = t;
-  const tabs = ['venta','inventario','clientes','proveedores','caja','reportes','usuarios'];
+  const tabs = ['venta','inventario','clientes','proveedores','caja','canchas','reportes','usuarios'];
   tabs.forEach((tab,i) => {
     document.getElementById('tab-'+tab).style.display = tab===t ? '' : 'none';
     document.querySelectorAll('.left > .tabs')[0].querySelectorAll('.tab')[i].classList.toggle('active', tab===t);
@@ -87,6 +96,7 @@ function setTab(t) {
   if (t==='clientes') renderClientes();
   if (t==='proveedores') renderProveedores();
   if (t==='caja') renderCaja();
+  if (t==='canchas') renderCalendario();
   if (t==='reportes') renderReportes();
   if (t==='usuarios') renderUsuarios();
 }
@@ -782,6 +792,151 @@ function exportReporteExcel() {
   downloadCSV(filename, rows);
 }
 
+const CAL_HORAS = Array.from({length:15}, (_,i) => i + 8); // 8:00 a 22:00
+
+function todayStr() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+function calMoverDia(delta) {
+  const input = document.getElementById('cal-fecha');
+  const d = new Date(input.value + 'T00:00:00');
+  d.setDate(d.getDate() + delta);
+  input.value = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  renderCalendario();
+}
+
+function reservaEn(canchaId, fecha, hora) {
+  return reservas.find(r => r.canchaId === canchaId && r.fecha === fecha && hora >= r.hora && hora < r.hora + r.duracion);
+}
+
+function renderCalendario() {
+  const fechaInput = document.getElementById('cal-fecha');
+  if (!fechaInput.value) fechaInput.value = todayStr();
+  const fecha = fechaInput.value;
+  const wrap = document.getElementById('cal-grid-wrap');
+  if (!canchas.length) {
+    wrap.innerHTML = '<div class="resumen-empty">No hay canchas registradas</div>';
+    return;
+  }
+  let html = '<table style="width:100%;border-collapse:collapse;font-size:13px">';
+  html += '<tr><th style="text-align:left;padding:6px;color:#999;font-weight:500;font-size:12px">Hora</th>' +
+    canchas.map(c => `<th style="text-align:left;padding:6px;color:#666;font-weight:600">${c.name} <span style="color:#aaa;font-weight:400">S/ ${c.price}/h</span></th>`).join('') + '</tr>';
+  CAL_HORAS.forEach(h => {
+    html += `<tr><td style="padding:6px;color:#999;border-top:1px solid #eee">${String(h).padStart(2,'0')}:00</td>`;
+    canchas.forEach(c => {
+      const r = reservaEn(c.id, fecha, h);
+      if (r) {
+        if (r.hora === h) {
+          html += `<td style="padding:4px;border-top:1px solid #eee" onclick="openReservaModal(${c.id},'${fecha}',${h},${r.id})">
+            <div style="background:${r.pagado?'#eaf3de':'#faeeda'};border-radius:6px;padding:6px 8px;cursor:pointer">
+              <div style="font-weight:600;color:#1a1a18;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.cliente || 'Reservado'}</div>
+              <div style="font-size:11px;color:#666">${r.duracion}h · S/ ${r.total.toFixed(2)}${r.pagado?' · pagado':''}</div>
+            </div>
+          </td>`;
+        } else {
+          html += '<td style="padding:4px;border-top:1px solid #eee"></td>';
+        }
+      } else {
+        html += `<td style="padding:4px;border-top:1px solid #eee;cursor:pointer" onclick="openReservaModal(${c.id},'${fecha}',${h})" title="Reservar">
+          <div style="height:32px;border-radius:6px;border:1px dashed #ddd;display:flex;align-items:center;justify-content:center;color:#ccc" onmouseover="this.style.borderColor='#185fa5';this.style.color='#185fa5'" onmouseout="this.style.borderColor='#ddd';this.style.color='#ccc'">+</div>
+        </td>`;
+      }
+    });
+    html += '</tr>';
+  });
+  html += '</table>';
+  wrap.innerHTML = html;
+}
+
+function openCanchaModal() {
+  document.getElementById('ca-name').value = '';
+  document.getElementById('ca-price').value = '';
+  document.getElementById('modal-cancha-overlay').classList.add('show');
+}
+
+function saveCancha() {
+  const name = document.getElementById('ca-name').value.trim();
+  const price = parseFloat(document.getElementById('ca-price').value);
+  if (!name || isNaN(price) || price < 0) { showNotify('Completa nombre y precio', 'danger'); return; }
+  canchas.push({id: nextCanchaId++, name, price});
+  closeModalById('modal-cancha-overlay');
+  renderCalendario();
+  saveData();
+  showNotify('Cancha agregada');
+}
+
+function renderReservaCanchaSelect(selectedId) {
+  const sel = document.getElementById('rv-cancha');
+  sel.innerHTML = canchas.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+  sel.value = selectedId;
+}
+
+function renderReservaHoraSelect(selectedHora) {
+  const sel = document.getElementById('rv-hora');
+  sel.innerHTML = CAL_HORAS.map(h => `<option value="${h}">${String(h).padStart(2,'0')}:00</option>`).join('');
+  sel.value = selectedHora;
+}
+
+function onReservaDuracionChange() {
+  const canchaId = Number(document.getElementById('rv-cancha').value);
+  const cancha = canchas.find(c => c.id === canchaId);
+  const duracion = Number(document.getElementById('rv-duracion').value);
+  if (cancha && !editingReservaId) document.getElementById('rv-total').value = (cancha.price * duracion).toFixed(2);
+}
+
+function openReservaModal(canchaId, fecha, hora, reservaId=null) {
+  editingReservaId = reservaId;
+  const r = reservaId ? reservas.find(x => x.id === reservaId) : null;
+  document.getElementById('modal-reserva-title').textContent = reservaId ? 'Editar reserva' : 'Nueva reserva';
+  document.getElementById('rv-delete-btn').style.display = reservaId ? '' : 'none';
+  renderReservaCanchaSelect(r ? r.canchaId : canchaId);
+  document.getElementById('rv-fecha').value = r ? r.fecha : fecha;
+  renderReservaHoraSelect(r ? r.hora : hora);
+  document.getElementById('rv-duracion').value = r ? r.duracion : 1;
+  document.getElementById('rv-cliente').value = r ? r.cliente : '';
+  const cancha = canchas.find(c => c.id === (r ? r.canchaId : canchaId));
+  document.getElementById('rv-total').value = r ? r.total.toFixed(2) : (cancha ? cancha.price.toFixed(2) : '');
+  document.getElementById('rv-pagado').checked = r ? !!r.pagado : false;
+  document.getElementById('modal-reserva-overlay').classList.add('show');
+}
+
+function saveReserva() {
+  const canchaId = Number(document.getElementById('rv-cancha').value);
+  const fecha = document.getElementById('rv-fecha').value;
+  const hora = Number(document.getElementById('rv-hora').value);
+  const duracion = Number(document.getElementById('rv-duracion').value);
+  const cliente = document.getElementById('rv-cliente').value.trim();
+  const total = parseFloat(document.getElementById('rv-total').value) || 0;
+  const pagado = document.getElementById('rv-pagado').checked;
+  if (!fecha || !cliente) { showNotify('Completa fecha y cliente', 'danger'); return; }
+  const ocupado = reservas.some(r => r.canchaId === canchaId && r.fecha === fecha && r.id !== editingReservaId &&
+    hora < r.hora + r.duracion && hora + duracion > r.hora);
+  if (ocupado) { showNotify('Ese horario ya está reservado en esa cancha', 'danger'); return; }
+  if (editingReservaId) {
+    const r = reservas.find(x => x.id === editingReservaId);
+    Object.assign(r, {canchaId, fecha, hora, duracion, cliente, total, pagado});
+    showNotify('Reserva actualizada');
+  } else {
+    reservas.push({id: nextReservaId++, canchaId, fecha, hora, duracion, cliente, total, pagado});
+    showNotify('Reserva creada');
+  }
+  closeModalById('modal-reserva-overlay');
+  renderCalendario();
+  saveData();
+}
+
+function deleteReserva() {
+  if (!editingReservaId) return;
+  if (!confirm('¿Eliminar esta reserva?')) return;
+  reservas = reservas.filter(r => r.id !== editingReservaId);
+  closeModalById('modal-reserva-overlay');
+  renderCalendario();
+  saveData();
+  showNotify('Reserva eliminada');
+}
+
 function showNotify(msg, type='') {
   const el = document.getElementById('notify');
   el.textContent = msg;
@@ -796,4 +951,5 @@ renderProducts();
 renderClienteSelect();
 renderUsuarioActivoSelect();
 renderCart();
+document.getElementById('cal-fecha').value = todayStr();
 document.getElementById('barcode-input').focus();
