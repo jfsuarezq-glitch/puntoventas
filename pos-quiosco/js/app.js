@@ -255,6 +255,7 @@ function onBarcode(val) {
 
 function onKey(e) {
   if (e.key === 'Enter') {
+    clearTimeout(scanTimer);
     const val = e.target.value.trim();
     const prod = products.find(p => p.barcode === val);
     if (prod) { addToCart(prod.id); e.target.value = ''; renderProducts(''); }
