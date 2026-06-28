@@ -344,8 +344,23 @@ function renderInventario() {
         <div style="display:flex;align-items:center;gap:5px">${badge} <span style="font-size:12px;color:#666">${p.stock} uds</span></div>
       </div>
       <i class="ti ti-pencil" onclick="openAddModal(${p.id})" title="Editar" style="font-size:16px;color:#bbb;cursor:pointer;padding:4px;margin-left:4px"></i>
+      <i class="ti ti-trash" onclick="deleteProduct(${p.id})" title="Eliminar" style="font-size:16px;color:#bbb;cursor:pointer;padding:4px"></i>
     </div>`;
   }).join('');
+}
+
+function deleteProduct(id) {
+  const p = products.find(x => x.id === id);
+  if (!p) return;
+  if (!confirm('¿Eliminar "' + p.name + '" del inventario?')) return;
+  products = products.filter(x => x.id !== id);
+  cart = cart.filter(c => c.id !== id);
+  renderInventario();
+  renderProducts(document.getElementById('barcode-input').value);
+  renderCart();
+  renderCompraProductoSelect();
+  saveData();
+  showNotify('Producto eliminado');
 }
 
 function movsSesionActual() {
