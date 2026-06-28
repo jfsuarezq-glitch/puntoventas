@@ -262,10 +262,32 @@ function onKey(e) {
   }
 }
 
-function openAddModal(id=null) {
+function renderExistingProductSelect(selectedId=null) {
+  const sel = document.getElementById('m-existing');
+  const sorted = [...products].sort((a,b) => a.name.localeCompare(b.name));
+  sel.innerHTML = '<option value="">+ Producto nuevo</option>' +
+    sorted.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+  sel.value = selectedId || '';
+}
+
+function onExistingProductChange(idStr) {
+  const id = idStr ? parseInt(idStr) : null;
   editingId = id;
   const p = id ? products.find(x => x.id === id) : null;
   document.getElementById('modal-title').textContent = id ? 'Editar producto' : 'Nuevo producto';
+  document.getElementById('m-stock-label').textContent = id ? 'Stock actual' : 'Stock inicial';
+  document.getElementById('m-name').value = p ? p.name : '';
+  document.getElementById('m-price').value = p ? p.price : '';
+  document.getElementById('m-stock').value = p ? p.stock : '';
+  document.getElementById('m-barcode').value = p ? p.barcode : '';
+}
+
+function openAddModal(id=null) {
+  editingId = id;
+  const p = id ? products.find(x => x.id === id) : null;
+  renderExistingProductSelect(id);
+  document.getElementById('modal-title').textContent = id ? 'Editar producto' : 'Nuevo producto';
+  document.getElementById('m-stock-label').textContent = id ? 'Stock actual' : 'Stock inicial';
   document.getElementById('m-name').value = p ? p.name : '';
   document.getElementById('m-price').value = p ? p.price : '';
   document.getElementById('m-stock').value = p ? p.stock : '';
