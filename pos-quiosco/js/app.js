@@ -699,6 +699,60 @@ function renderReportes() {
   }
 }
 
+function csvCell(v) {
+  const s = String(v ?? '');
+  return /[",;\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
+}
+
+function downloadCSV(filename, rows) {
+  const csv = rows.map(r => r.map(csvCell).join(';')).join('\r\n');
+  const blob = new Blob(['﻿' + csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function exportReporteExcel() {
+  let rows = [];
+  let filename = 'reporte.csv';
+  if (currentReporte === 'ventas') {
+    filename = 'reporte_ventas.csv';
+    rows.push(['Fecha','Pago','Cliente','Total']);
+    salesHistory.slice().reverse().forEach(v => rows.push([
+      new Date(v.time).toLocaleString('es-PE',{dateStyle:'short',timeStyle:'short'}),
+      v.paymentType || 'efectivo',
+      v.clientName || '',
+      v.total.toFixed(2)
+    ]));
+  } else if (currentReporte === 'caja') {
+    filename = 'reporte_caja.csv';
+    rows.push(['Cierre','Ingresos','Gastos','Retiros','Saldo']);
+    cierres.slice().reverse().forEach(c => rows.push([
+      new Date(c.hasta).toLocaleString('es-PE',{dateStyle:'short',timeStyle:'short'}),
+      c.ingresos.toFixed(2), c.gastos.toFixed(2), c.retiros.toFixed(2), c.saldo.toFixed(2)
+    ]));
+  } else if (currentReporte === 'clientes') {
+    filename = 'reporte_clientes.csv';
+    rows.push(['Cliente','Saldo']);
+    clients.forEach(c => rows.push([c.name, (c.saldo||0).toFixed(2)]));
+  } else if (currentReporte === 'proveedores') {
+    filename = 'reporte_proveedores.csv';
+    rows.push(['Proveedor','Saldo']);
+    providers.forEach(p => rows.push([p.name, (p.saldo||0).toFixed(2)]));
+  } else if (currentReporte === 'articulos') {
+    filename = 'reporte_articulos.csv';
+    rows.push(['Producto','Stock','Precio','Valor total']);
+    products.forEach(p => rows.push([p.name, p.stock, p.price.toFixed(2), (p.price*p.stock).toFixed(2)]));
+  }
+  if (rows.length <= 1) { showNotify('No hay datos para exportar', 'danger'); return; }
+  downloadCSV(filename, rows);
+}
+
 function showNotify(msg, type='') {
   const el = document.getElementById('notify');
   el.textContent = msg;

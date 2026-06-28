@@ -78,7 +78,10 @@
     </div>
 
     <div id="tab-reportes" style="display:none">
-      <div class="section-label" style="margin-bottom:.75rem">Reportes</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">
+        <div class="section-label" style="margin:0">Reportes</div>
+        <button class="add-prod-btn" onclick="exportReporteExcel()"><i class="ti ti-file-spreadsheet"></i> Exportar a Excel</button>
+      </div>
       <div class="tabs" style="margin-bottom:.75rem">
         <div class="tab active" onclick="setReporte('ventas')">Ventas</div>
         <div class="tab" onclick="setReporte('caja')">Caja</div>
