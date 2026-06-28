@@ -34,6 +34,8 @@
         <select id="usuario-activo-select" title="Vendedor activo" onchange="setUsuarioActivo(this.value)"></select>
         <button class="add-prod-btn" onclick="openAddModal()"><i class="ti ti-plus"></i> Producto</button>
       </div>
+      <div class="section-label" id="pinned-label" style="display:none">Anclados</div>
+      <div class="products-grid" id="pinned-grid" style="display:none;margin-bottom:.9rem"></div>
       <div class="section-label">Productos — haz clic para agregar al carrito</div>
       <div class="products-grid" id="products-grid"></div>
     </div>

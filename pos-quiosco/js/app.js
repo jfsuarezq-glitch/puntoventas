@@ -91,7 +91,43 @@ function setTab(t) {
   if (t==='usuarios') renderUsuarios();
 }
 
+function prodCardHtml(p) {
+  return `
+    <div class="prod-card" onclick="addToCart(${p.id})" title="Cód: ${p.barcode}">
+      <i class="ti ${p.pinned ? 'ti-pin-filled' : 'ti-pin'} pin-btn" onclick="event.stopPropagation();togglePin(${p.id})" title="${p.pinned ? 'Desanclar' : 'Anclar'}"></i>
+      <div class="prod-name">${p.name}</div>
+      <div class="prod-price">S/ ${p.price.toFixed(2)}</div>
+      <div class="prod-stock">${p.stock} en stock</div>
+      <div class="prod-barcode">${p.barcode}</div>
+    </div>
+  `;
+}
+
+function renderPinned() {
+  const label = document.getElementById('pinned-label');
+  const grid = document.getElementById('pinned-grid');
+  const pinned = products.filter(p => p.pinned);
+  if (!pinned.length) {
+    label.style.display = 'none';
+    grid.style.display = 'none';
+    return;
+  }
+  label.style.display = '';
+  grid.style.display = '';
+  grid.innerHTML = pinned.map(prodCardHtml).join('');
+}
+
+function togglePin(id) {
+  const p = products.find(x => x.id === id);
+  if (!p) return;
+  p.pinned = !p.pinned;
+  saveData();
+  renderPinned();
+  renderProducts(document.getElementById('barcode-input').value);
+}
+
 function renderProducts(filter='') {
+  renderPinned();
   const grid = document.getElementById('products-grid');
   const q = filter.toLowerCase();
   const filtered = products.filter(p => p.name.toLowerCase().includes(q) || p.barcode.includes(q));
@@ -99,14 +135,7 @@ function renderProducts(filter='') {
     grid.innerHTML = '<div style="color:#bbb;font-size:13px;grid-column:1/-1;padding:1rem 0">Sin resultados para "'+filter+'"</div>';
     return;
   }
-  grid.innerHTML = filtered.map(p => `
-    <div class="prod-card" onclick="addToCart(${p.id})" title="Cód: ${p.barcode}">
-      <div class="prod-name">${p.name}</div>
-      <div class="prod-price">S/ ${p.price.toFixed(2)}</div>
-      <div class="prod-stock">${p.stock} en stock</div>
-      <div class="prod-barcode">${p.barcode}</div>
-    </div>
-  `).join('');
+  grid.innerHTML = filtered.map(prodCardHtml).join('');
 }
 
 function addToCart(id) {

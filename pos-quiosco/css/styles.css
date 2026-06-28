@@ -12,7 +12,10 @@ body{font-family:system-ui,sans-serif;background:#f0efea;color:#1a1a18;min-heigh
 .search-wrap i{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#aaa;font-size:17px;pointer-events:none}
 .section-label{font-size:11px;color:#aaa;text-transform:uppercase;letter-spacing:.07em;font-weight:600;margin-bottom:4px}
 .products-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;align-content:start}
-.prod-card{background:#fff;border:1px solid #e0e0d8;border-radius:10px;padding:12px 10px;cursor:pointer;transition:border-color .12s,background .12s;display:flex;flex-direction:column;gap:5px}
+.prod-card{position:relative;background:#fff;border:1px solid #e0e0d8;border-radius:10px;padding:12px 10px;cursor:pointer;transition:border-color .12s,background .12s;display:flex;flex-direction:column;gap:5px}
+.pin-btn{position:absolute;top:6px;right:6px;font-size:14px;color:#ccc;padding:3px;border-radius:50%;line-height:1}
+.pin-btn:hover{color:#185fa5;background:#f0f7ff}
+.prod-card .ti-pin-filled{color:#185fa5}
 .prod-card:hover{border-color:#185fa5;background:#f0f7ff}
 .prod-card:active{transform:scale(.97)}
 .prod-name{font-size:13px;font-weight:600;color:#1a1a18;line-height:1.3}
