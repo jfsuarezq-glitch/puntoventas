@@ -21,6 +21,7 @@ let clientPayments = [];
 let providerPayments = [];
 let cierres = [];
 let cajaAbiertaDesde = new Date().toISOString();
+let cajaSaldoAcumulado = 0;
 let categories = ['Bebidas','Snack','Galletas','B.Alcohólicas'];
 let canchas = [{id:1,name:'Cancha Vóley',price:40},{id:2,name:'Cancha Fútbol',price:60}];
 let reservas = [];
@@ -49,7 +50,7 @@ let currentReporte = 'ventas';
 function saveData() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify({
     products, salesHistory, clients, providers, users, purchases, cajaMovs,
-    clientPayments, providerPayments, cierres, cajaAbiertaDesde, canchas, reservas, categories,
+    clientPayments, providerPayments, cierres, cajaAbiertaDesde, cajaSaldoAcumulado, canchas, reservas, categories,
     nextId, nextClientId, nextProviderId, nextUserId, nextCanchaId, nextReservaId, activeUserId
   }));
 }
@@ -70,6 +71,7 @@ function loadData() {
     providerPayments = d.providerPayments || [];
     cierres = d.cierres || [];
     cajaAbiertaDesde = d.cajaAbiertaDesde || cajaAbiertaDesde;
+    cajaSaldoAcumulado = d.cajaSaldoAcumulado || 0;
     canchas = d.canchas && d.canchas.length ? d.canchas : canchas;
     reservas = d.reservas || [];
     categories = d.categories && d.categories.length ? d.categories : categories;
@@ -458,19 +460,21 @@ function movsSesionActual() {
 function renderCaja() {
   const el = document.getElementById('caja-section');
   const movs = movsSesionActual();
-  if (!movs.length) {
-    el.innerHTML = '<div class="resumen-empty">No hay movimientos registrados en esta sesión</div>'; return;
-  }
   const ingresos = movs.filter(m => m.type==='ingreso').reduce((s,m)=>s+m.amount,0);
   const gastos = movs.filter(m => m.type==='gasto').reduce((s,m)=>s+m.amount,0);
   const retiros = movs.filter(m => m.type==='retiro').reduce((s,m)=>s+m.amount,0);
-  const saldo = ingresos - gastos - retiros;
+  const saldoSesion = ingresos - gastos - retiros;
+  const saldoTotal = cajaSaldoAcumulado + saldoSesion;
+  const movsHtml = movs.length
+    ? movs.slice().reverse().map(m => `<div class="caja-row"><span style="color:#999">${m.desc} — ${new Date(m.date).toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'})}</span><span>${m.type==='ingreso'?'+':'-'} S/ ${m.amount.toFixed(2)}</span></div>`).join('')
+    : '<div class="resumen-empty">No hay movimientos registrados en esta sesión</div>';
   el.innerHTML = `
+    <div class="caja-row"><span style="color:#666">Saldo anterior</span><span style="font-weight:600">S/ ${cajaSaldoAcumulado.toFixed(2)}</span></div>
     <div class="caja-row"><span style="color:#666">Ingresos</span><span style="font-weight:600;color:#3b6d11">S/ ${ingresos.toFixed(2)}</span></div>
     <div class="caja-row"><span style="color:#666">Gastos</span><span style="font-weight:600;color:#a32d2d">S/ ${gastos.toFixed(2)}</span></div>
     <div class="caja-row"><span style="color:#666">Retiros</span><span style="font-weight:600;color:#a32d2d">S/ ${retiros.toFixed(2)}</span></div>
-    ${movs.slice().reverse().map(m => `<div class="caja-row"><span style="color:#999">${m.desc} — ${new Date(m.date).toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'})}</span><span>${m.type==='ingreso'?'+':'-'} S/ ${m.amount.toFixed(2)}</span></div>`).join('')}
-    <div class="caja-row"><span>Saldo en caja</span><span style="color:#185fa5">S/ ${saldo.toFixed(2)}</span></div>
+    ${movsHtml}
+    <div class="caja-row"><span>Saldo en caja</span><span style="color:#185fa5;font-weight:700">S/ ${saldoTotal.toFixed(2)}</span></div>
   `;
 }
 
@@ -500,9 +504,11 @@ function cerrarCaja() {
   const ingresos = movs.filter(m => m.type==='ingreso').reduce((s,m)=>s+m.amount,0);
   const gastos = movs.filter(m => m.type==='gasto').reduce((s,m)=>s+m.amount,0);
   const retiros = movs.filter(m => m.type==='retiro').reduce((s,m)=>s+m.amount,0);
+  const saldoSesion = ingresos - gastos - retiros;
+  cajaSaldoAcumulado += saldoSesion;
   cierres.push({
     id: Date.now(), desde: cajaAbiertaDesde, hasta: new Date().toISOString(),
-    ingresos, gastos, retiros, saldo: ingresos - gastos - retiros
+    ingresos, gastos, retiros, saldo: saldoSesion, saldoAcumulado: cajaSaldoAcumulado
   });
   cajaAbiertaDesde = new Date().toISOString();
   renderCaja();
@@ -868,7 +874,7 @@ function renderReportes() {
     `;
   } else if (currentReporte === 'caja') {
     if (!cierres.length) { el.innerHTML = '<div class="resumen-empty">No hay cierres de caja registrados</div>'; return; }
-    el.innerHTML = cierres.slice().reverse().map(c => `<div class="caja-row"><span style="color:#999">${new Date(c.hasta).toLocaleString('es-PE',{dateStyle:'short',timeStyle:'short'})}</span><span>Ingresos S/ ${c.ingresos.toFixed(2)} · Gastos S/ ${c.gastos.toFixed(2)} · Retiros S/ ${c.retiros.toFixed(2)} · Saldo S/ ${c.saldo.toFixed(2)}</span></div>`).join('');
+    el.innerHTML = cierres.slice().reverse().map(c => `<div class="caja-row"><span style="color:#999">${new Date(c.hasta).toLocaleString('es-PE',{dateStyle:'short',timeStyle:'short'})}</span><span>Ingresos S/ ${c.ingresos.toFixed(2)} · Gastos S/ ${c.gastos.toFixed(2)} · Retiros S/ ${c.retiros.toFixed(2)} · Saldo sesión S/ ${c.saldo.toFixed(2)} · Saldo total S/ ${(c.saldoAcumulado!=null?c.saldoAcumulado:c.saldo).toFixed(2)}</span></div>`).join('');
   } else if (currentReporte === 'clientes') {
     if (!clients.length) { el.innerHTML = '<div class="resumen-empty">No hay clientes registrados</div>'; return; }
     const totalDeuda = clients.reduce((s,c)=>s+(c.saldo||0),0);
