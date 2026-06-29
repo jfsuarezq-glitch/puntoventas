@@ -46,6 +46,8 @@ let activeUserId = 1;
 let scanTimer = null;
 let currentTab = 'venta';
 let currentReporte = 'ventas';
+const ADMIN_PASSWORD = '1234';
+let sesionRole = 'personal';
 
 function saveData() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify({
@@ -515,6 +517,7 @@ function onExistingProductChange(idStr) {
 }
 
 function openAddModal(id=null) {
+  if (sesionRole !== 'admin') { showNotify('Solo el administrador puede modificar el inventario', 'danger'); return; }
   editingId = id;
   const p = id ? products.find(x => x.id === id) : null;
   renderExistingProductSelect(id);
@@ -564,7 +567,17 @@ function saveProduct() {
   saveData();
 }
 
+function updateAdminUI() {
+  const isAdmin = sesionRole === 'admin';
+  const ventaBtn = document.getElementById('venta-add-btn');
+  if (ventaBtn) ventaBtn.style.display = isAdmin ? '' : 'none';
+  const invBtn = document.getElementById('inventario-add-btn');
+  if (invBtn) invBtn.style.display = isAdmin ? '' : 'none';
+}
+
 function renderInventario() {
+  const isAdmin = sesionRole === 'admin';
+  updateAdminUI();
   const el = document.getElementById('inventario-list');
   el.innerHTML = products.map(p => {
     const badge = p.stock <= 0
@@ -581,13 +594,14 @@ function renderInventario() {
         <div style="font-size:13px;font-weight:700;color:#185fa5">S/ ${p.price.toFixed(2)}</div>
         <div style="display:flex;align-items:center;gap:5px">${badge} <span style="font-size:12px;color:#666">${p.stock} uds</span></div>
       </div>
-      <i class="ti ti-pencil" onclick="openAddModal(${p.id})" title="Editar" style="font-size:16px;color:#bbb;cursor:pointer;padding:4px;margin-left:4px"></i>
-      <i class="ti ti-trash" onclick="deleteProduct(${p.id})" title="Eliminar" style="font-size:16px;color:#bbb;cursor:pointer;padding:4px"></i>
+      ${isAdmin ? `<i class="ti ti-pencil" onclick="openAddModal(${p.id})" title="Editar" style="font-size:16px;color:#bbb;cursor:pointer;padding:4px;margin-left:4px"></i>
+      <i class="ti ti-trash" onclick="deleteProduct(${p.id})" title="Eliminar" style="font-size:16px;color:#bbb;cursor:pointer;padding:4px"></i>` : ''}
     </div>`;
   }).join('');
 }
 
 function deleteProduct(id) {
+  if (sesionRole !== 'admin') { showNotify('Solo el administrador puede modificar el inventario', 'danger'); return; }
   const p = products.find(x => x.id === id);
   if (!p) return;
   if (!confirm('¿Eliminar "' + p.name + '" del inventario?')) return;
@@ -945,6 +959,7 @@ function savePago() {
 
 function renderUsuarios() {
   renderUsuarioActivoSelect();
+  renderSesionLogin();
   const el = document.getElementById('usuarios-list');
   el.innerHTML = users.map(u => `<div class="inv-item">
       <div style="flex:1;min-width:0">
@@ -953,6 +968,37 @@ function renderUsuarios() {
       </div>
       <i class="ti ti-pencil" onclick="openUsuarioModal(${u.id})" title="Editar" style="font-size:16px;color:#bbb;cursor:pointer;padding:4px"></i>
     </div>`).join('');
+}
+
+function renderSesionLogin() {
+  const el = document.getElementById('sesion-login');
+  if (!el) return;
+  el.innerHTML = `
+    <span style="font-size:13px;color:#666">Sesión actual: <strong style="color:#185fa5">${sesionRole === 'admin' ? 'Administrador' : 'Personal'}</strong></span>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="add-prod-btn" onclick="loginAdmin()" ${sesionRole==='admin' ? 'disabled' : ''}><i class="ti ti-shield-lock"></i> Ingresar como Administrador</button>
+      <button class="add-prod-btn" onclick="loginPersonal()" ${sesionRole==='personal' ? 'disabled' : ''}><i class="ti ti-user"></i> Ingresar como Personal</button>
+    </div>
+  `;
+}
+
+function loginAdmin() {
+  const pass = prompt('Ingresa la clave de administrador:');
+  if (pass === null) return;
+  if (pass !== ADMIN_PASSWORD) { showNotify('Clave incorrecta', 'danger'); return; }
+  sesionRole = 'admin';
+  showNotify('Sesión iniciada como Administrador');
+  renderSesionLogin();
+  updateAdminUI();
+  if (currentTab === 'inventario') renderInventario();
+}
+
+function loginPersonal() {
+  sesionRole = 'personal';
+  showNotify('Sesión iniciada como Personal');
+  renderSesionLogin();
+  updateAdminUI();
+  if (currentTab === 'inventario') renderInventario();
 }
 
 function renderUsuarioActivoSelect() {
@@ -1357,6 +1403,7 @@ function showNotify(msg, type='') {
 loadData();
 loadTabsPrefs();
 setTab(closedTabs.includes(currentTab) ? tabsOrder.find(t => !closedTabs.includes(t)) : currentTab);
+updateAdminUI();
 renderProducts();
 renderClienteSelect();
 renderUsuarioActivoSelect();
