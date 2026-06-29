@@ -21,6 +21,7 @@ let clientPayments = [];
 let providerPayments = [];
 let cierres = [];
 let cajaAbiertaDesde = new Date().toISOString();
+let categories = ['Bebidas','Snack','Galletas','B.Alcohólicas'];
 let canchas = [{id:1,name:'Cancha Vóley',price:40},{id:2,name:'Cancha Fútbol',price:60}];
 let reservas = [];
 let nextId = 9;
@@ -45,7 +46,7 @@ let currentReporte = 'ventas';
 function saveData() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify({
     products, salesHistory, clients, providers, users, purchases, cajaMovs,
-    clientPayments, providerPayments, cierres, cajaAbiertaDesde, canchas, reservas,
+    clientPayments, providerPayments, cierres, cajaAbiertaDesde, canchas, reservas, categories,
     nextId, nextClientId, nextProviderId, nextUserId, nextCanchaId, nextReservaId, activeUserId
   }));
 }
@@ -68,6 +69,7 @@ function loadData() {
     cajaAbiertaDesde = d.cajaAbiertaDesde || cajaAbiertaDesde;
     canchas = d.canchas && d.canchas.length ? d.canchas : canchas;
     reservas = d.reservas || [];
+    categories = d.categories && d.categories.length ? d.categories : categories;
     nextId = d.nextId || nextId;
     nextClientId = d.nextClientId || nextClientId;
     nextProviderId = d.nextProviderId || nextProviderId;
@@ -331,6 +333,20 @@ function renderExistingProductSelect(selectedId=null) {
   sel.value = selectedId || '';
 }
 
+function renderCategorySelect(selected='') {
+  const sel = document.getElementById('m-category');
+  sel.innerHTML = '<option value="">Sin categoría</option>' +
+    categories.map(c => `<option value="${c}">${c}</option>`).join('') +
+    '<option value="__new__">+ Nueva categoría</option>';
+  sel.value = selected || '';
+  document.getElementById('m-category-new').style.display = 'none';
+  document.getElementById('m-category-new').value = '';
+}
+
+function onCategorySelectChange(val) {
+  document.getElementById('m-category-new').style.display = val === '__new__' ? '' : 'none';
+}
+
 function onExistingProductChange(idStr) {
   const id = idStr ? parseInt(idStr) : null;
   editingId = id;
@@ -341,6 +357,7 @@ function onExistingProductChange(idStr) {
   document.getElementById('m-price').value = p ? p.price : '';
   document.getElementById('m-stock').value = p ? p.stock : '';
   document.getElementById('m-barcode').value = p ? p.barcode : '';
+  renderCategorySelect(p ? p.category : '');
 }
 
 function openAddModal(id=null) {
@@ -353,6 +370,7 @@ function openAddModal(id=null) {
   document.getElementById('m-price').value = p ? p.price : '';
   document.getElementById('m-stock').value = p ? p.stock : '';
   document.getElementById('m-barcode').value = p ? p.barcode : '';
+  renderCategorySelect(p ? p.category : '');
   document.getElementById('modal-overlay').classList.add('show');
   setTimeout(() => document.getElementById('m-name').focus(), 100);
 }
@@ -371,13 +389,18 @@ function saveProduct() {
   const price = parseFloat(document.getElementById('m-price').value);
   const stock = parseInt(document.getElementById('m-stock').value) || 0;
   const barcode = document.getElementById('m-barcode').value.trim();
+  let category = document.getElementById('m-category').value;
+  if (category === '__new__') {
+    category = document.getElementById('m-category-new').value.trim();
+    if (category && !categories.includes(category)) categories.push(category);
+  }
   if (!name || isNaN(price) || price < 0) { showNotify('Completa nombre y precio', 'danger'); return; }
   if (editingId) {
     const p = products.find(x => x.id === editingId);
-    Object.assign(p, {name, price, stock, barcode});
+    Object.assign(p, {name, price, stock, barcode, category});
     showNotify('Producto actualizado');
   } else {
-    products.push({id:nextId++, name, price, stock, barcode});
+    products.push({id:nextId++, name, price, stock, barcode, category});
     showNotify('Producto agregado');
   }
   closeModal();
@@ -398,6 +421,7 @@ function renderInventario() {
       <div style="flex:1;min-width:0">
         <div style="font-size:13px;font-weight:600;color:#1a1a18">${p.name}</div>
         <div style="font-size:11px;color:#bbb;font-family:monospace">${p.barcode || '—'}</div>
+        ${p.category ? `<div style="font-size:11px;color:#185fa5;margin-top:2px">${p.category}</div>` : ''}
       </div>
       <div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:4px">
         <div style="font-size:13px;font-weight:700;color:#185fa5">S/ ${p.price.toFixed(2)}</div>

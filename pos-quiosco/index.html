@@ -182,6 +182,11 @@
       <div class="modal-label">Código de barras</div>
       <input type="text" id="m-barcode" placeholder="7501000000001" autocomplete="off">
     </div>
+    <div>
+      <div class="modal-label">Categoría</div>
+      <select id="m-category" onchange="onCategorySelectChange(this.value)"></select>
+      <input type="text" id="m-category-new" placeholder="Nombre de la nueva categoría" style="margin-top:8px;display:none">
+    </div>
     <div class="modal-btns">
       <button onclick="closeModal()">Cancelar</button>
       <button class="btn-save" onclick="saveProduct()"><i class="ti ti-device-floppy"></i> Guardar</button>
