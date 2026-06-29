@@ -377,10 +377,15 @@
         <input type="number" id="rv-total" min="0" step="1" oninput="onReservaTotalManual()">
       </div>
     </div>
-    <div style="display:flex;align-items:center;gap:6px">
-      <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:#555;cursor:pointer">
-        <input type="checkbox" id="rv-pagado" style="width:auto"> Pagado
-      </label>
+    <div class="modal-row">
+      <div>
+        <div class="modal-label">Adelanto (S/)</div>
+        <input type="number" id="rv-adelanto" min="0" step="1" value="0" oninput="onReservaAdelantoChange()">
+      </div>
+      <div>
+        <div class="modal-label">Saldo pendiente</div>
+        <div id="rv-saldo" style="height:38px;display:flex;align-items:center;font-size:14px;font-weight:700;color:#854f0b">S/ 0.00</div>
+      </div>
     </div>
     <div class="modal-btns">
       <button id="rv-delete-btn" onclick="deleteReserva()" style="color:#a32d2d;display:none">Eliminar</button>

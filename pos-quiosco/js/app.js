@@ -835,10 +835,13 @@ function renderCalendario() {
       const r = reservaEn(c.id, fecha, h);
       if (r) {
         if (r.hora === h) {
+          const adelanto = r.adelanto || 0;
+          const bg = r.pagado ? '#eaf3de' : (adelanto > 0 ? '#fdf3d8' : '#faeeda');
+          const estado = r.pagado ? 'pagado' : (adelanto > 0 ? `adelanto S/ ${adelanto.toFixed(2)} · saldo S/ ${(r.total-adelanto).toFixed(2)}` : 'sin pago');
           html += `<td style="padding:4px;border-top:1px solid #eee" onclick="openReservaModal(${c.id},'${fecha}',${h},${r.id})">
-            <div style="background:${r.pagado?'#eaf3de':'#faeeda'};border-radius:6px;padding:6px 8px;cursor:pointer">
+            <div style="background:${bg};border-radius:6px;padding:6px 8px;cursor:pointer">
               <div style="font-weight:600;color:#1a1a18;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.cliente || 'Reservado'}</div>
-              <div style="font-size:11px;color:#666">${r.duracion}h · S/ ${r.total.toFixed(2)}${r.descuento ? ' (desc. S/ '+r.descuento.toFixed(2)+')' : ''}${r.pagado?' · pagado':''}</div>
+              <div style="font-size:11px;color:#666">${r.duracion}h · S/ ${r.total.toFixed(2)}${r.descuento ? ' (desc. S/ '+r.descuento.toFixed(2)+')' : ''} · ${estado}</div>
             </div>
           </td>`;
         } else {
@@ -924,7 +927,22 @@ function onReservaDescuentoChange() {
   document.getElementById('rv-total').value = Math.max(0, reservaBaseTotal() - descuento).toFixed(2);
 }
 
-function onReservaTotalManual() {}
+function onReservaTotalManual() {
+  updateReservaSaldo();
+}
+
+function onReservaAdelantoChange() {
+  updateReservaSaldo();
+}
+
+function updateReservaSaldo() {
+  const total = parseFloat(document.getElementById('rv-total').value) || 0;
+  const adelanto = parseFloat(document.getElementById('rv-adelanto').value) || 0;
+  const saldo = Math.max(0, total - adelanto);
+  const el = document.getElementById('rv-saldo');
+  el.textContent = 'S/ ' + saldo.toFixed(2);
+  el.style.color = saldo === 0 && total > 0 ? '#3b6d11' : '#854f0b';
+}
 
 function openReservaModal(canchaId, fecha, hora, reservaId=null) {
   editingReservaId = reservaId;
@@ -939,7 +957,8 @@ function openReservaModal(canchaId, fecha, hora, reservaId=null) {
   document.getElementById('rv-descuento').value = r && r.descuento ? r.descuento.toFixed(2) : '0';
   const cancha = canchas.find(c => c.id === (r ? r.canchaId : canchaId));
   document.getElementById('rv-total').value = r ? r.total.toFixed(2) : (cancha ? cancha.price.toFixed(2) : '');
-  document.getElementById('rv-pagado').checked = r ? !!r.pagado : false;
+  document.getElementById('rv-adelanto').value = r && r.adelanto ? r.adelanto.toFixed(2) : '0';
+  updateReservaSaldo();
   document.getElementById('modal-reserva-overlay').classList.add('show');
 }
 
@@ -951,7 +970,9 @@ function saveReserva() {
   const cliente = document.getElementById('rv-cliente').value.trim();
   const descuento = parseFloat(document.getElementById('rv-descuento').value) || 0;
   const total = parseFloat(document.getElementById('rv-total').value) || 0;
-  const pagado = document.getElementById('rv-pagado').checked;
+  let adelanto = parseFloat(document.getElementById('rv-adelanto').value) || 0;
+  if (adelanto > total) adelanto = total;
+  const pagado = total > 0 && adelanto >= total;
   if (!fecha || !cliente) { showNotify('Completa fecha y cliente', 'danger'); return; }
   const ocupado = reservas.some(r => r.canchaId === canchaId && r.fecha === fecha && r.id !== editingReservaId &&
     hora < r.hora + r.duracion && hora + duracion > r.hora);
@@ -959,10 +980,10 @@ function saveReserva() {
   let reserva;
   if (editingReservaId) {
     reserva = reservas.find(x => x.id === editingReservaId);
-    Object.assign(reserva, {canchaId, fecha, hora, duracion, cliente, descuento, total, pagado});
+    Object.assign(reserva, {canchaId, fecha, hora, duracion, cliente, descuento, total, adelanto, pagado});
     showNotify('Reserva actualizada');
   } else {
-    reserva = {id: nextReservaId++, canchaId, fecha, hora, duracion, cliente, descuento, total, pagado, cajaMovId:null};
+    reserva = {id: nextReservaId++, canchaId, fecha, hora, duracion, cliente, descuento, total, adelanto, pagado, cajaMovId:null};
     reservas.push(reserva);
     showNotify('Reserva creada');
   }
@@ -974,15 +995,16 @@ function saveReserva() {
 
 function sincronizarCajaReserva(reserva) {
   const cancha = canchas.find(c => c.id === reserva.canchaId);
-  const desc = 'Alquiler ' + (cancha ? cancha.name : 'cancha') + (reserva.cliente ? ' - ' + reserva.cliente : '');
-  if (reserva.pagado) {
+  const estado = reserva.pagado ? '' : ' (adelanto)';
+  const desc = 'Alquiler ' + (cancha ? cancha.name : 'cancha') + (reserva.cliente ? ' - ' + reserva.cliente : '') + estado;
+  if (reserva.adelanto > 0) {
     if (reserva.cajaMovId && cajaMovs.find(m => m.id === reserva.cajaMovId)) {
       const mov = cajaMovs.find(m => m.id === reserva.cajaMovId);
-      mov.amount = reserva.total;
+      mov.amount = reserva.adelanto;
       mov.desc = desc;
     } else {
       const movId = Date.now() + Math.floor(Math.random()*1000);
-      cajaMovs.push({id: movId, type:'ingreso', amount: reserva.total, desc, date: new Date().toISOString(), auto:true});
+      cajaMovs.push({id: movId, type:'ingreso', amount: reserva.adelanto, desc, date: new Date().toISOString(), auto:true});
       reserva.cajaMovId = movId;
     }
   } else if (reserva.cajaMovId) {
