@@ -885,6 +885,23 @@ function renderReportes() {
     const totalDeuda = providers.reduce((s,p)=>s+(p.saldo||0),0);
     el.innerHTML = providers.map(p => `<div class="caja-row"><span style="color:#999">${p.name}</span><span>S/ ${(p.saldo||0).toFixed(2)}</span></div>`).join('') +
       `<div class="caja-row"><span>Total por pagar</span><span style="color:#185fa5">S/ ${totalDeuda.toFixed(2)}</span></div>`;
+  } else if (currentReporte === 'canchas') {
+    if (!reservas.length) { el.innerHTML = '<div class="resumen-empty">No hay reservas de canchas registradas</div>'; return; }
+    const totalContratado = reservas.reduce((s,r)=>s+r.total,0);
+    const totalCobrado = reservas.reduce((s,r)=>s+(r.adelanto||0),0);
+    const totalPendiente = totalContratado - totalCobrado;
+    const rowsHtml = reservas.slice().reverse().map(r => {
+      const cancha = canchas.find(c => c.id === r.canchaId);
+      const estado = r.pagado ? 'Pagado' : ((r.adelanto||0) > 0 ? 'Adelanto' : 'Pendiente');
+      return `<div class="caja-row"><span style="color:#999">${r.fecha} ${String(r.hora).padStart(2,'0')}:00 — ${cancha ? cancha.name : 'Cancha'}${r.cliente ? ' · '+r.cliente : ''} · ${estado}</span><span>S/ ${(r.adelanto||0).toFixed(2)} / S/ ${r.total.toFixed(2)}</span></div>`;
+    });
+    el.innerHTML = `
+      <div class="caja-row"><span style="color:#666">Reservas registradas</span><span style="font-weight:600">${reservas.length}</span></div>
+      ${rowsHtml.join('')}
+      <div class="caja-row"><span style="color:#666">Total contratado</span><span>S/ ${totalContratado.toFixed(2)}</span></div>
+      <div class="caja-row"><span style="color:#666">Total cobrado</span><span style="font-weight:600;color:#3b6d11">S/ ${totalCobrado.toFixed(2)}</span></div>
+      <div class="caja-row"><span>Saldo pendiente por cobrar</span><span style="color:#185fa5">S/ ${totalPendiente.toFixed(2)}</span></div>
+    `;
   } else if (currentReporte === 'articulos') {
     const valorInventario = products.reduce((s,p)=>s+p.price*p.stock,0);
     el.innerHTML = products.map(p => `<div class="caja-row"><span style="color:#999">${p.name} (${p.stock} uds)</span><span>S/ ${(p.price*p.stock).toFixed(2)}</span></div>`).join('') +
@@ -938,6 +955,15 @@ function exportReporteExcel() {
     filename = 'reporte_proveedores.csv';
     rows.push(['Proveedor','Saldo']);
     providers.forEach(p => rows.push([p.name, (p.saldo||0).toFixed(2)]));
+  } else if (currentReporte === 'canchas') {
+    filename = 'reporte_canchas.csv';
+    rows.push(['Fecha','Hora','Cancha','Cliente','Duración (h)','Descuento','Total','Adelanto cobrado','Saldo pendiente','Estado']);
+    reservas.slice().reverse().forEach(r => {
+      const cancha = canchas.find(c => c.id === r.canchaId);
+      const estado = r.pagado ? 'Pagado' : ((r.adelanto||0) > 0 ? 'Adelanto' : 'Pendiente');
+      rows.push([r.fecha, String(r.hora).padStart(2,'0')+':00', cancha ? cancha.name : '', r.cliente || '', r.duracion,
+        (r.descuento||0).toFixed(2), r.total.toFixed(2), (r.adelanto||0).toFixed(2), (r.total-(r.adelanto||0)).toFixed(2), estado]);
+    });
   } else if (currentReporte === 'articulos') {
     filename = 'reporte_articulos.csv';
     rows.push(['Producto','Stock','Precio','Valor total']);
