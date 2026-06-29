@@ -479,6 +479,14 @@ function onKey(e) {
     const prod = products.find(p => p.barcode === val);
     if (prod) { addToCart(prod.id); e.target.value = ''; renderProducts(''); }
     else if (val) showNotify('Código no encontrado: ' + val, 'danger');
+    else if (cart.length) cobrar();
+  }
+}
+
+function onEfectivoKey(e) {
+  if (e.key === 'Enter' && cart.length && !document.getElementById('cobrar-btn').disabled) {
+    e.preventDefault();
+    cobrar();
   }
 }
 
