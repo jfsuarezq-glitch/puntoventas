@@ -39,6 +39,7 @@ let editingCanchaId = null;
 let pagoTarget = null;
 let compraProviderId = null;
 let compraItems = [];
+let compraSelectedProductId = null;
 let cajaMovType = null;
 let activeUserId = 1;
 let scanTimer = null;
@@ -606,9 +607,37 @@ function saveProveedor() {
 }
 
 function renderCompraProductoSelect() {
-  const sel = document.getElementById('compra-producto');
-  if (!sel) return;
-  sel.innerHTML = products.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+  const dl = document.getElementById('compra-producto-datalist');
+  if (!dl) return;
+  dl.innerHTML = products.map(p => `<option value="${p.name}">${p.barcode ? 'Código: '+p.barcode : ''}</option>`).join('');
+}
+
+function matchCompraProducto(val) {
+  const v = val.trim();
+  if (!v) { compraSelectedProductId = null; return null; }
+  let prod = products.find(p => p.barcode && p.barcode === v);
+  if (!prod) prod = products.find(p => p.name.toLowerCase() === v.toLowerCase());
+  compraSelectedProductId = prod ? prod.id : null;
+  return prod || null;
+}
+
+function onCompraProductoInput(val) {
+  const prod = matchCompraProducto(val);
+  if (prod) {
+    const costoInput = document.getElementById('compra-costo');
+    if (!costoInput.value) {
+      const lastItem = purchases.slice().reverse().flatMap(c => c.items || []).find(it => it.productId === prod.id);
+      if (lastItem) costoInput.value = lastItem.costo;
+    }
+  }
+}
+
+function onCompraProductoKeydown(e) {
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  const prod = matchCompraProducto(e.target.value);
+  if (prod) document.getElementById('compra-cantidad').focus();
+  else showNotify('Producto no encontrado', 'danger');
 }
 
 function renderCompraProveedorSelect(selected) {
@@ -624,27 +653,34 @@ function renderCompraProveedorSelect(selected) {
 function openCompraModal(providerId=null) {
   compraProviderId = providerId;
   compraItems = [];
+  compraSelectedProductId = null;
   renderCompraProductoSelect();
   renderCompraProveedorSelect(providerId);
+  document.getElementById('compra-producto-search').value = '';
   document.getElementById('compra-cantidad').value = '';
   document.getElementById('compra-costo').value = '';
   document.getElementById('compra-forma-pago').value = 'credito';
   renderCompraItemsList();
   document.getElementById('modal-compra-overlay').classList.add('show');
+  setTimeout(() => document.getElementById('compra-producto-search').focus(), 100);
 }
 
 function addCompraItem() {
-  const productoId = Number(document.getElementById('compra-producto').value);
+  const prod = compraSelectedProductId
+    ? products.find(p => p.id === compraSelectedProductId)
+    : matchCompraProducto(document.getElementById('compra-producto-search').value);
   const cantidad = parseInt(document.getElementById('compra-cantidad').value);
   const costo = parseFloat(document.getElementById('compra-costo').value);
-  if (!productoId || isNaN(cantidad) || cantidad <= 0 || isNaN(costo) || costo < 0) {
-    showNotify('Completa producto, cantidad y costo', 'danger'); return;
+  if (!prod || isNaN(cantidad) || cantidad <= 0 || isNaN(costo) || costo < 0) {
+    showNotify('Completa producto (nombre o código válido), cantidad y costo', 'danger'); return;
   }
-  const prod = products.find(p => p.id === productoId);
   compraItems.push({productId: prod.id, productName: prod.name, cantidad, costo, total: cantidad * costo});
+  document.getElementById('compra-producto-search').value = '';
   document.getElementById('compra-cantidad').value = '';
   document.getElementById('compra-costo').value = '';
+  compraSelectedProductId = null;
   renderCompraItemsList();
+  document.getElementById('compra-producto-search').focus();
 }
 
 function removeCompraItem(idx) {

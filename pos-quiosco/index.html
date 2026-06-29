@@ -275,8 +275,10 @@
     </div>
     <div class="modal-row">
       <div style="flex:2">
-        <div class="modal-label">Producto</div>
-        <select id="compra-producto"></select>
+        <div class="modal-label">Producto (nombre o código de barras)</div>
+        <input type="text" id="compra-producto-search" list="compra-producto-datalist" placeholder="Escribe o escanea..." autocomplete="off"
+          oninput="onCompraProductoInput(this.value)" onkeydown="onCompraProductoKeydown(event)">
+        <datalist id="compra-producto-datalist"></datalist>
       </div>
       <div>
         <div class="modal-label">Cantidad</div>
