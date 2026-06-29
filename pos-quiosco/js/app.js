@@ -838,7 +838,7 @@ function renderCalendario() {
           html += `<td style="padding:4px;border-top:1px solid #eee" onclick="openReservaModal(${c.id},'${fecha}',${h},${r.id})">
             <div style="background:${r.pagado?'#eaf3de':'#faeeda'};border-radius:6px;padding:6px 8px;cursor:pointer">
               <div style="font-weight:600;color:#1a1a18;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.cliente || 'Reservado'}</div>
-              <div style="font-size:11px;color:#666">${r.duracion}h · S/ ${r.total.toFixed(2)}${r.pagado?' · pagado':''}</div>
+              <div style="font-size:11px;color:#666">${r.duracion}h · S/ ${r.total.toFixed(2)}${r.descuento ? ' (desc. S/ '+r.descuento.toFixed(2)+')' : ''}${r.pagado?' · pagado':''}</div>
             </div>
           </td>`;
         } else {
@@ -905,12 +905,26 @@ function renderReservaHoraSelect(selectedHora) {
   sel.value = selectedHora;
 }
 
-function onReservaDuracionChange() {
+function reservaBaseTotal() {
   const canchaId = Number(document.getElementById('rv-cancha').value);
   const cancha = canchas.find(c => c.id === canchaId);
   const duracion = Number(document.getElementById('rv-duracion').value);
-  if (cancha && !editingReservaId) document.getElementById('rv-total').value = (cancha.price * duracion).toFixed(2);
+  return cancha ? cancha.price * duracion : 0;
 }
+
+function onReservaDuracionChange() {
+  if (!editingReservaId) {
+    const descuento = parseFloat(document.getElementById('rv-descuento').value) || 0;
+    document.getElementById('rv-total').value = Math.max(0, reservaBaseTotal() - descuento).toFixed(2);
+  }
+}
+
+function onReservaDescuentoChange() {
+  const descuento = parseFloat(document.getElementById('rv-descuento').value) || 0;
+  document.getElementById('rv-total').value = Math.max(0, reservaBaseTotal() - descuento).toFixed(2);
+}
+
+function onReservaTotalManual() {}
 
 function openReservaModal(canchaId, fecha, hora, reservaId=null) {
   editingReservaId = reservaId;
@@ -922,6 +936,7 @@ function openReservaModal(canchaId, fecha, hora, reservaId=null) {
   renderReservaHoraSelect(r ? r.hora : hora);
   document.getElementById('rv-duracion').value = r ? r.duracion : 1;
   document.getElementById('rv-cliente').value = r ? r.cliente : '';
+  document.getElementById('rv-descuento').value = r && r.descuento ? r.descuento.toFixed(2) : '0';
   const cancha = canchas.find(c => c.id === (r ? r.canchaId : canchaId));
   document.getElementById('rv-total').value = r ? r.total.toFixed(2) : (cancha ? cancha.price.toFixed(2) : '');
   document.getElementById('rv-pagado').checked = r ? !!r.pagado : false;
@@ -934,6 +949,7 @@ function saveReserva() {
   const hora = Number(document.getElementById('rv-hora').value);
   const duracion = Number(document.getElementById('rv-duracion').value);
   const cliente = document.getElementById('rv-cliente').value.trim();
+  const descuento = parseFloat(document.getElementById('rv-descuento').value) || 0;
   const total = parseFloat(document.getElementById('rv-total').value) || 0;
   const pagado = document.getElementById('rv-pagado').checked;
   if (!fecha || !cliente) { showNotify('Completa fecha y cliente', 'danger'); return; }
@@ -943,10 +959,10 @@ function saveReserva() {
   let reserva;
   if (editingReservaId) {
     reserva = reservas.find(x => x.id === editingReservaId);
-    Object.assign(reserva, {canchaId, fecha, hora, duracion, cliente, total, pagado});
+    Object.assign(reserva, {canchaId, fecha, hora, duracion, cliente, descuento, total, pagado});
     showNotify('Reserva actualizada');
   } else {
-    reserva = {id: nextReservaId++, canchaId, fecha, hora, duracion, cliente, total, pagado, cajaMovId:null};
+    reserva = {id: nextReservaId++, canchaId, fecha, hora, duracion, cliente, descuento, total, pagado, cajaMovId:null};
     reservas.push(reserva);
     showNotify('Reserva creada');
   }

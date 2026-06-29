@@ -369,14 +369,18 @@
     </div>
     <div class="modal-row">
       <div>
+        <div class="modal-label">Descuento (S/)</div>
+        <input type="number" id="rv-descuento" min="0" step="1" value="0" oninput="onReservaDescuentoChange()">
+      </div>
+      <div>
         <div class="modal-label">Total (S/)</div>
-        <input type="number" id="rv-total" min="0" step="1">
+        <input type="number" id="rv-total" min="0" step="1" oninput="onReservaTotalManual()">
       </div>
-      <div style="display:flex;align-items:flex-end;padding-bottom:8px">
-        <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:#555;cursor:pointer">
-          <input type="checkbox" id="rv-pagado" style="width:auto"> Pagado
-        </label>
-      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px">
+      <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:#555;cursor:pointer">
+        <input type="checkbox" id="rv-pagado" style="width:auto"> Pagado
+      </label>
     </div>
     <div class="modal-btns">
       <button id="rv-delete-btn" onclick="deleteReserva()" style="color:#a32d2d;display:none">Eliminar</button>
