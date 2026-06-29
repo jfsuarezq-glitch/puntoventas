@@ -621,13 +621,22 @@ function matchCompraProducto(val) {
   return prod || null;
 }
 
+function lastCostoForProducto(productId) {
+  const prod = products.find(p => p.id === productId);
+  if (prod && prod.costo) return prod.costo;
+  const pendiente = compraItems.slice().reverse().find(it => it.productId === productId);
+  if (pendiente) return pendiente.costo;
+  const lastItem = purchases.slice().reverse().flatMap(c => c.items || []).find(it => it.productId === productId);
+  return lastItem ? lastItem.costo : null;
+}
+
 function onCompraProductoInput(val) {
   const prod = matchCompraProducto(val);
   if (prod) {
     const costoInput = document.getElementById('compra-costo');
     if (!costoInput.value) {
-      const lastItem = purchases.slice().reverse().flatMap(c => c.items || []).find(it => it.productId === prod.id);
-      if (lastItem) costoInput.value = lastItem.costo;
+      const costo = lastCostoForProducto(prod.id);
+      if (costo != null) costoInput.value = costo;
     }
   }
 }
@@ -711,7 +720,7 @@ function saveCompra() {
   const total = compraItems.reduce((s, it) => s + it.total, 0);
   compraItems.forEach(it => {
     const prod = products.find(p => p.id === it.productId);
-    if (prod) prod.stock += it.cantidad;
+    if (prod) { prod.stock += it.cantidad; prod.costo = it.costo; }
   });
   const pagado = formaPago === 'pagado';
   if (pagado) {
