@@ -15,15 +15,12 @@
 </div>
 <div class="pos">
   <div class="left">
-    <div class="tabs">
-      <div class="tab active" onclick="setTab('venta')">Venta</div>
-      <div class="tab" onclick="setTab('inventario')">Inventario</div>
-      <div class="tab" onclick="setTab('clientes')">Clientes</div>
-      <div class="tab" onclick="setTab('proveedores')">Proveedores</div>
-      <div class="tab" onclick="setTab('caja')">Caja</div>
-      <div class="tab" onclick="setTab('canchas')">Canchas</div>
-      <div class="tab" onclick="setTab('reportes')">Reportes</div>
-      <div class="tab" onclick="setTab('usuarios')">Usuarios</div>
+    <div class="tabs-bar-wrap">
+      <div class="tabs" id="tabs-bar"></div>
+      <div class="tabs-menu-wrap">
+        <i class="ti ti-menu-2" id="tabs-menu-btn" onclick="toggleTabsMenu(event)" title="Pestañas cerradas"></i>
+        <div class="tabs-menu" id="tabs-menu"></div>
+      </div>
     </div>
 
     <div id="tab-venta">

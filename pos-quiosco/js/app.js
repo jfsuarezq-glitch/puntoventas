@@ -93,13 +93,123 @@ function closeModalOuterById(e, id) {
   if (e.target === document.getElementById(id)) closeModalById(id);
 }
 
+const TAB_DEFS = {
+  venta: 'Venta', inventario: 'Inventario', clientes: 'Clientes', proveedores: 'Proveedores',
+  caja: 'Caja', canchas: 'Canchas', reportes: 'Reportes', usuarios: 'Usuarios'
+};
+let tabsOrder = Object.keys(TAB_DEFS);
+let closedTabs = [];
+let draggedTabId = null;
+
+function renderTabsBar() {
+  const bar = document.getElementById('tabs-bar');
+  const openTabs = tabsOrder.filter(id => !closedTabs.includes(id));
+  bar.innerHTML = openTabs.map(id => `
+    <div class="tab ${id===currentTab?'active':''}" data-tab-id="${id}" draggable="true"
+      onclick="setTab('${id}')"
+      ondragstart="onTabDragStart(event,'${id}')" ondragover="onTabDragOver(event,'${id}')"
+      ondrop="onTabDrop(event,'${id}')" ondragend="onTabDragEnd(event)" ondragleave="onTabDragLeave(event)">
+      <span>${TAB_DEFS[id]}</span>
+      <i class="ti ti-x tab-close" onclick="event.stopPropagation();closeTab('${id}')" title="Cerrar pestaña"></i>
+    </div>`).join('');
+  renderTabsMenu();
+}
+
+function renderTabsMenu() {
+  const menu = document.getElementById('tabs-menu');
+  if (!closedTabs.length) { menu.innerHTML = '<div class="tabs-menu-empty">No hay pestañas cerradas</div>'; return; }
+  menu.innerHTML = tabsOrder.filter(id => closedTabs.includes(id)).map(id =>
+    `<div class="tabs-menu-item" onclick="reopenTab('${id}')"><i class="ti ti-plus"></i> ${TAB_DEFS[id]}</div>`
+  ).join('');
+}
+
+function toggleTabsMenu(e) {
+  e.stopPropagation();
+  document.getElementById('tabs-menu').classList.toggle('show');
+}
+
+document.addEventListener('click', (e) => {
+  const menu = document.getElementById('tabs-menu');
+  if (menu && !menu.contains(e.target) && e.target.id !== 'tabs-menu-btn') menu.classList.remove('show');
+});
+
+function closeTab(id) {
+  if (!closedTabs.includes(id)) closedTabs.push(id);
+  if (currentTab === id) {
+    const next = tabsOrder.find(t => !closedTabs.includes(t));
+    if (next) setTab(next);
+  }
+  renderTabsBar();
+  saveTabsPrefs();
+}
+
+function reopenTab(id) {
+  closedTabs = closedTabs.filter(t => t !== id);
+  document.getElementById('tabs-menu').classList.remove('show');
+  renderTabsBar();
+  saveTabsPrefs();
+  setTab(id);
+}
+
+function onTabDragStart(e, id) {
+  draggedTabId = id;
+  e.target.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+}
+
+function onTabDragOver(e, id) {
+  e.preventDefault();
+  if (id !== draggedTabId) e.currentTarget.classList.add('drag-over');
+}
+
+function onTabDragLeave(e) {
+  e.currentTarget.classList.remove('drag-over');
+}
+
+function onTabDrop(e, targetId) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  if (!draggedTabId || draggedTabId === targetId) return;
+  const fromIdx = tabsOrder.indexOf(draggedTabId);
+  const toIdx = tabsOrder.indexOf(targetId);
+  tabsOrder.splice(fromIdx, 1);
+  tabsOrder.splice(toIdx, 0, draggedTabId);
+  renderTabsBar();
+  saveTabsPrefs();
+}
+
+function onTabDragEnd(e) {
+  e.target.classList.remove('dragging');
+  document.querySelectorAll('.tab.drag-over').forEach(t => t.classList.remove('drag-over'));
+  draggedTabId = null;
+}
+
+function saveTabsPrefs() {
+  localStorage.setItem('posQuioscoTabsPrefs', JSON.stringify({tabsOrder, closedTabs}));
+}
+
+function loadTabsPrefs() {
+  const raw = localStorage.getItem('posQuioscoTabsPrefs');
+  if (!raw) return;
+  try {
+    const d = JSON.parse(raw);
+    if (Array.isArray(d.tabsOrder) && d.tabsOrder.length) {
+      const known = Object.keys(TAB_DEFS);
+      const restored = d.tabsOrder.filter(id => known.includes(id));
+      known.forEach(id => { if (!restored.includes(id)) restored.push(id); });
+      tabsOrder = restored;
+    }
+    if (Array.isArray(d.closedTabs)) closedTabs = d.closedTabs.filter(id => Object.keys(TAB_DEFS).includes(id));
+  } catch (e) {}
+}
+
 function setTab(t) {
+  if (closedTabs.includes(t)) return;
   currentTab = t;
-  const tabs = ['venta','inventario','clientes','proveedores','caja','canchas','reportes','usuarios'];
-  tabs.forEach((tab,i) => {
+  Object.keys(TAB_DEFS).forEach(tab => {
     document.getElementById('tab-'+tab).style.display = tab===t ? '' : 'none';
-    document.querySelectorAll('.left > .tabs')[0].querySelectorAll('.tab')[i].classList.toggle('active', tab===t);
   });
+  renderTabsBar();
   if (t==='inventario') renderInventario();
   if (t==='clientes') renderClientes();
   if (t==='proveedores') renderProveedores();
@@ -1214,6 +1324,8 @@ function showNotify(msg, type='') {
 }
 
 loadData();
+loadTabsPrefs();
+setTab(closedTabs.includes(currentTab) ? tabsOrder.find(t => !closedTabs.includes(t)) : currentTab);
 renderProducts();
 renderClienteSelect();
 renderUsuarioActivoSelect();
