@@ -1074,7 +1074,7 @@ function renderReportes() {
       (v.items||[]).forEach(it => {
         const desc = it.descuento || 0;
         const lineTotal = it.price*it.qty - desc;
-        lineRows.push(`<div class="caja-row"><span style="color:#999">${fecha} — ${it.name} · ${it.qty} x S/ ${it.price.toFixed(2)}${desc ? ' · desc S/ '+desc.toFixed(2) : ''}${v.clientName?' · '+v.clientName:''}</span><span>S/ ${lineTotal.toFixed(2)}</span></div>`);
+        lineRows.push(`<div class="caja-row"><span style="color:#999">${fecha} — ${it.name} · ${it.qty} x S/ ${it.price.toFixed(2)}${desc ? ' · desc S/ '+desc.toFixed(2) : ''}${v.clientName?' · '+v.clientName:''}${v.userName?' · Vendedor: '+v.userName:''}</span><span>S/ ${lineTotal.toFixed(2)}</span></div>`);
       });
     });
     el.innerHTML = `
@@ -1139,12 +1139,12 @@ function exportReporteExcel() {
   let filename = 'reporte.csv';
   if (currentReporte === 'ventas') {
     filename = 'reporte_ventas.csv';
-    rows.push(['Fecha y hora','Producto','Precio unitario','Unidades vendidas','Descuento aplicado','Precio total','Pago','Cliente']);
+    rows.push(['Fecha y hora','Producto','Precio unitario','Unidades vendidas','Descuento aplicado','Precio total','Pago','Cliente','Vendedor']);
     salesHistory.slice().reverse().forEach(v => {
       const fecha = new Date(v.time).toLocaleString('es-PE',{dateStyle:'short',timeStyle:'short'});
       (v.items||[]).forEach(it => {
         const desc = it.descuento || 0;
-        rows.push([fecha, it.name, it.price.toFixed(2), it.qty, desc.toFixed(2), (it.price*it.qty-desc).toFixed(2), v.paymentType || 'efectivo', v.clientName || '']);
+        rows.push([fecha, it.name, it.price.toFixed(2), it.qty, desc.toFixed(2), (it.price*it.qty-desc).toFixed(2), v.paymentType || 'efectivo', v.clientName || '', v.userName || '']);
       });
     });
   } else if (currentReporte === 'caja') {
