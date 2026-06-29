@@ -115,6 +115,14 @@
         <button class="add-prod-btn" onclick="openUsuarioModal()"><i class="ti ti-plus"></i> Usuario</button>
       </div>
       <div id="usuarios-list" style="display:flex;flex-direction:column;gap:6px"></div>
+
+      <div class="section-label" style="margin-top:1.5rem">Copia de seguridad</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:.5rem">
+        <button class="add-prod-btn" onclick="exportarBackup()"><i class="ti ti-download"></i> Exportar copia de seguridad</button>
+        <button class="add-prod-btn" onclick="document.getElementById('backup-file-input').click()"><i class="ti ti-upload"></i> Importar copia de seguridad</button>
+        <input type="file" id="backup-file-input" accept="application/json" style="display:none" onchange="importarBackup(event)">
+      </div>
+      <div style="font-size:12px;color:#888;margin-top:6px">Exporta todos los datos (productos, ventas, clientes, caja, etc.) a un archivo .json que puedes guardar en una carpeta externa o USB. Importar reemplaza todos los datos actuales.</div>
     </div>
   </div>
 

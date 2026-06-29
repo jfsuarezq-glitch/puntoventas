@@ -85,6 +85,45 @@ function loadData() {
   } catch (e) {}
 }
 
+function exportarBackup() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  const data = raw ? JSON.parse(raw) : {};
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const fecha = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+  a.href = url;
+  a.download = `posquiosco-backup-${fecha}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  showNotify('Copia de seguridad exportada', 'success');
+}
+
+function importarBackup(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  if (!confirm('Esto reemplazará todos los datos actuales con los del archivo. ¿Continuar?')) {
+    event.target.value = '';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const data = JSON.parse(reader.result);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      showNotify('Copia de seguridad importada', 'success');
+      location.reload();
+    } catch (e) {
+      showNotify('Archivo inválido', 'danger');
+    } finally {
+      event.target.value = '';
+    }
+  };
+  reader.readAsText(file);
+}
+
 function closeModalById(id) {
   document.getElementById(id).classList.remove('show');
 }
