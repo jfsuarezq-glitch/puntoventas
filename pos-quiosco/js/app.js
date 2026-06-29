@@ -739,6 +739,8 @@ function saveCliente() {
 function renderProveedores() {
   renderCompraProductoSelect();
   renderComprasHistorial();
+  renderPagosProveedoresHistorial();
+  const isAdmin = sesionRole === 'admin';
   const el = document.getElementById('proveedores-list');
   if (!providers.length) { el.innerHTML = '<div class="resumen-empty">No hay proveedores registrados</div>'; return; }
   el.innerHTML = providers.map(p => {
@@ -753,8 +755,51 @@ function renderProveedores() {
       <i class="ti ti-truck-delivery" onclick="openCompraModal(${p.id})" title="Ingreso de mercadería" style="font-size:16px;color:#bbb;cursor:pointer;padding:4px"></i>
       <i class="ti ti-cash" onclick="openPagoModal('proveedor',${p.id})" title="Registrar pago" style="font-size:16px;color:#bbb;cursor:pointer;padding:4px"></i>
       <i class="ti ti-pencil" onclick="openProveedorModal(${p.id})" title="Editar" style="font-size:16px;color:#bbb;cursor:pointer;padding:4px"></i>
+      ${isAdmin ? `<i class="ti ti-trash" onclick="deleteProveedor(${p.id})" title="Eliminar proveedor" style="font-size:16px;color:#bbb;cursor:pointer;padding:4px"></i>` : ''}
     </div>`;
   }).join('');
+}
+
+function deleteProveedor(id) {
+  if (sesionRole !== 'admin') { showNotify('Solo el administrador puede eliminar proveedores', 'danger'); return; }
+  const p = providers.find(x => x.id === id);
+  if (!p) return;
+  if (!confirm('¿Eliminar el proveedor "' + p.name + '"? El historial de compras y pagos se conservará.')) return;
+  providers = providers.filter(x => x.id !== id);
+  renderProveedores();
+  showNotify('Proveedor eliminado');
+  saveData();
+}
+
+function renderPagosProveedoresHistorial() {
+  const el = document.getElementById('pagos-proveedor-list');
+  if (!el) return;
+  if (!providerPayments.length) { el.innerHTML = '<div class="resumen-empty">No hay pagos registrados</div>'; return; }
+  el.innerHTML = providerPayments.slice().reverse().map(pg => {
+    const provider = providers.find(p => p.id === pg.providerId);
+    return `<div class="inv-item">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600;color:#1a1a18">${provider ? provider.name : 'Proveedor'}</div>
+        <div style="font-size:11px;color:#bbb">${new Date(pg.date).toLocaleString('es-PE',{dateStyle:'short',timeStyle:'short'})}</div>
+      </div>
+      <div style="font-size:13px;font-weight:700;color:#185fa5">S/ ${pg.amount.toFixed(2)}</div>
+      <i class="ti ti-arrow-back-up" onclick="undoPagoProveedor(${pg.id})" title="Deshacer pago" style="font-size:16px;color:#bbb;cursor:pointer;padding:4px"></i>
+    </div>`;
+  }).join('');
+}
+
+function undoPagoProveedor(paymentId) {
+  const pg = providerPayments.find(x => x.id === paymentId);
+  if (!pg) return;
+  if (!confirm('¿Deshacer este pago de S/ ' + pg.amount.toFixed(2) + '? El saldo del proveedor aumentará nuevamente.')) return;
+  const provider = providers.find(p => p.id === pg.providerId);
+  if (provider) provider.saldo = (provider.saldo || 0) + pg.amount;
+  if (pg.cajaMovId != null) cajaMovs = cajaMovs.filter(m => m.id !== pg.cajaMovId);
+  providerPayments = providerPayments.filter(x => x.id !== paymentId);
+  renderProveedores();
+  if (currentTab === 'caja') renderCaja();
+  showNotify('Pago deshecho');
+  saveData();
 }
 
 function openProveedorModal(id=null) {
@@ -964,8 +1009,9 @@ function savePago() {
   } else {
     const p = providers.find(x => x.id === pagoTarget.id);
     p.saldo = Math.max(0, (p.saldo || 0) - amount);
-    providerPayments.push({id: Date.now(), providerId: p.id, amount, date: new Date().toISOString()});
-    cajaMovs.push({id: Date.now()+1, type:'gasto', amount, desc: 'Pago a proveedor — ' + p.name, date: new Date().toISOString()});
+    const cajaMovId = Date.now()+1;
+    providerPayments.push({id: Date.now(), providerId: p.id, amount, date: new Date().toISOString(), cajaMovId});
+    cajaMovs.push({id: cajaMovId, type:'gasto', amount, desc: 'Pago a proveedor — ' + p.name, date: new Date().toISOString()});
     renderProveedores();
     showNotify('Pago a proveedor registrado');
   }
