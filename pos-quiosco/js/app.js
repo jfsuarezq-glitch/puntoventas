@@ -259,6 +259,7 @@ function setTab(t) {
   if (t==='reportes') renderReportes();
   if (t==='usuarios') renderUsuarios();
   document.getElementById('cart-panel').style.display = t==='venta' ? '' : 'none';
+  if (t==='venta') document.getElementById('barcode-input').focus();
 }
 
 function prodCardHtml(p) {
