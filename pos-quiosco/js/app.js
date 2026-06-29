@@ -836,7 +836,7 @@ function renderCalendario() {
       if (r) {
         if (r.hora === h) {
           const adelanto = r.adelanto || 0;
-          const bg = r.pagado ? '#eaf3de' : (adelanto > 0 ? '#fdf3d8' : '#faeeda');
+          const bg = r.pagado ? '#dff0d8' : (adelanto > 0 ? '#fce3c2' : '#fad1d1');
           const estado = r.pagado ? 'pagado' : (adelanto > 0 ? `adelanto S/ ${adelanto.toFixed(2)} · saldo S/ ${(r.total-adelanto).toFixed(2)}` : 'sin pago');
           html += `<td style="padding:4px;border-top:1px solid #eee" onclick="openReservaModal(${c.id},'${fecha}',${h},${r.id})">
             <div style="background:${bg};border-radius:6px;padding:6px 8px;cursor:pointer">
