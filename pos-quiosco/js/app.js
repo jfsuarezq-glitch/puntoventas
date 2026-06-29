@@ -37,6 +37,8 @@ let editingUserId = null;
 let editingReservaId = null;
 let editingCanchaId = null;
 let pagoTarget = null;
+let compraProviderId = null;
+let compraItems = [];
 let cajaMovType = null;
 let activeUserId = 1;
 let scanTimer = null;
@@ -557,6 +559,7 @@ function saveCliente() {
 
 function renderProveedores() {
   renderCompraProductoSelect();
+  renderComprasHistorial();
   const el = document.getElementById('proveedores-list');
   if (!providers.length) { el.innerHTML = '<div class="resumen-empty">No hay proveedores registrados</div>'; return; }
   el.innerHTML = providers.map(p => {
@@ -608,15 +611,29 @@ function renderCompraProductoSelect() {
   sel.innerHTML = products.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
 }
 
-function openCompraModal(providerId) {
-  pagoTarget = {type:'compra', id: providerId};
+function renderCompraProveedorSelect(selected) {
+  const sel = document.getElementById('compra-proveedor');
+  if (!providers.length) {
+    sel.innerHTML = '<option value="">No hay proveedores registrados</option>';
+    return;
+  }
+  sel.innerHTML = providers.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+  sel.value = selected || providers[0].id;
+}
+
+function openCompraModal(providerId=null) {
+  compraProviderId = providerId;
+  compraItems = [];
   renderCompraProductoSelect();
+  renderCompraProveedorSelect(providerId);
   document.getElementById('compra-cantidad').value = '';
   document.getElementById('compra-costo').value = '';
+  document.getElementById('compra-forma-pago').value = 'credito';
+  renderCompraItemsList();
   document.getElementById('modal-compra-overlay').classList.add('show');
 }
 
-function saveCompra() {
+function addCompraItem() {
   const productoId = Number(document.getElementById('compra-producto').value);
   const cantidad = parseInt(document.getElementById('compra-cantidad').value);
   const costo = parseFloat(document.getElementById('compra-costo').value);
@@ -624,16 +641,77 @@ function saveCompra() {
     showNotify('Completa producto, cantidad y costo', 'danger'); return;
   }
   const prod = products.find(p => p.id === productoId);
-  const provider = providers.find(p => p.id === pagoTarget.id);
-  const total = cantidad * costo;
-  prod.stock += cantidad;
-  provider.saldo = (provider.saldo || 0) + total;
-  purchases.push({id: Date.now(), providerId: provider.id, productId: prod.id, productName: prod.name, cantidad, costo, total, date: new Date().toISOString()});
+  compraItems.push({productId: prod.id, productName: prod.name, cantidad, costo, total: cantidad * costo});
+  document.getElementById('compra-cantidad').value = '';
+  document.getElementById('compra-costo').value = '';
+  renderCompraItemsList();
+}
+
+function removeCompraItem(idx) {
+  compraItems.splice(idx, 1);
+  renderCompraItemsList();
+}
+
+function renderCompraItemsList() {
+  const el = document.getElementById('compra-items-list');
+  el.innerHTML = compraItems.length ? compraItems.map((it, idx) => `
+    <div style="display:flex;align-items:center;justify-content:space-between;background:#f5f5f3;border-radius:6px;padding:6px 8px">
+      <span style="font-size:12px">${it.productName} × ${it.cantidad}</span>
+      <span style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:12px;font-weight:600">S/ ${it.total.toFixed(2)}</span>
+        <i class="ti ti-x" onclick="removeCompraItem(${idx})" style="cursor:pointer;color:#c0392b"></i>
+      </span>
+    </div>`).join('') : '<div class="resumen-empty">Aún no agregaste ítems</div>';
+  const total = compraItems.reduce((s, it) => s + it.total, 0);
+  document.getElementById('compra-total').textContent = 'S/ ' + total.toFixed(2);
+}
+
+function saveCompra() {
+  const providerId = Number(document.getElementById('compra-proveedor').value);
+  const provider = providers.find(p => p.id === providerId);
+  if (!provider) { showNotify('Selecciona un proveedor', 'danger'); return; }
+  if (!compraItems.length) { showNotify('Agrega al menos un ítem a la compra', 'danger'); return; }
+  const formaPago = document.getElementById('compra-forma-pago').value;
+  const total = compraItems.reduce((s, it) => s + it.total, 0);
+  compraItems.forEach(it => {
+    const prod = products.find(p => p.id === it.productId);
+    if (prod) prod.stock += it.cantidad;
+  });
+  const pagado = formaPago === 'pagado';
+  if (pagado) {
+    cajaMovs.push({id: Date.now(), type:'gasto', amount: total, desc: 'Compra a ' + provider.name, date: new Date().toISOString()});
+  } else {
+    provider.saldo = (provider.saldo || 0) + total;
+  }
+  purchases.push({id: Date.now(), providerId: provider.id, items: compraItems.slice(), total, pagado, date: new Date().toISOString()});
   closeModalById('modal-compra-overlay');
   renderProveedores();
+  renderComprasHistorial();
   if (currentTab === 'inventario') renderInventario();
   showNotify('Compra registrada — stock actualizado');
   saveData();
+}
+
+function renderComprasHistorial() {
+  const el = document.getElementById('compras-list');
+  if (!el) return;
+  if (!purchases.length) { el.innerHTML = '<div class="resumen-empty">No hay compras registradas</div>'; return; }
+  el.innerHTML = purchases.slice().reverse().map(c => {
+    const provider = providers.find(p => p.id === c.providerId);
+    const items = c.items || [{productName: c.productName, cantidad: c.cantidad}];
+    const detalle = items.map(it => `${it.productName} ×${it.cantidad}`).join(', ');
+    const badge = c.pagado ? '<span class="badge-ok">Pagado</span>' : '<span class="badge-low">A crédito</span>';
+    return `<div class="inv-item">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600;color:#1a1a18">${provider ? provider.name : 'Proveedor'}</div>
+        <div style="font-size:11px;color:#bbb">${detalle} · ${new Date(c.date).toLocaleDateString()}</div>
+      </div>
+      <div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+        <div style="font-size:13px;font-weight:700;color:#185fa5">S/ ${c.total.toFixed(2)}</div>
+        ${badge}
+      </div>
+    </div>`;
+  }).join('');
 }
 
 function openPagoModal(type, id) {

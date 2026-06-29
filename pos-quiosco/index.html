@@ -60,9 +60,15 @@
     <div id="tab-proveedores" style="display:none">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">
         <div class="section-label" style="margin:0">Proveedores</div>
-        <button class="add-prod-btn" onclick="openProveedorModal()"><i class="ti ti-plus"></i> Proveedor</button>
+        <div style="display:flex;gap:8px">
+          <button class="add-prod-btn" onclick="openCompraModal()"><i class="ti ti-truck-delivery"></i> Nueva compra</button>
+          <button class="add-prod-btn" onclick="openProveedorModal()"><i class="ti ti-plus"></i> Proveedor</button>
+        </div>
       </div>
       <div id="proveedores-list" style="display:flex;flex-direction:column;gap:6px"></div>
+
+      <div class="section-label" style="margin-top:1.25rem">Historial de compras</div>
+      <div id="compras-list" style="display:flex;flex-direction:column;gap:6px"></div>
     </div>
 
     <div id="tab-caja" style="display:none">
@@ -261,13 +267,17 @@
 </div>
 
 <div class="modal-overlay" id="modal-compra-overlay" onclick="closeModalOuterById(event,'modal-compra-overlay')">
-  <div class="modal">
-    <h3>Ingreso de mercadería</h3>
+  <div class="modal" style="max-width:480px">
+    <h3>Registrar compra</h3>
     <div>
-      <div class="modal-label">Producto</div>
-      <select id="compra-producto"></select>
+      <div class="modal-label">Proveedor</div>
+      <select id="compra-proveedor"></select>
     </div>
     <div class="modal-row">
+      <div style="flex:2">
+        <div class="modal-label">Producto</div>
+        <select id="compra-producto"></select>
+      </div>
       <div>
         <div class="modal-label">Cantidad</div>
         <input type="number" id="compra-cantidad" placeholder="0" min="1" step="1">
@@ -275,6 +285,20 @@
       <div>
         <div class="modal-label">Costo unitario (S/)</div>
         <input type="number" id="compra-costo" placeholder="0.00" min="0" step="0.10">
+      </div>
+    </div>
+    <button onclick="addCompraItem()" style="width:100%;margin:4px 0 10px;padding:8px;border:1px dashed #aaa;background:#fafafa;border-radius:6px;cursor:pointer"><i class="ti ti-plus"></i> Agregar ítem</button>
+    <div id="compra-items-list" style="display:flex;flex-direction:column;gap:4px;max-height:180px;overflow-y:auto"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin:10px 0;font-weight:700;font-size:15px">
+      <span>Total</span><span id="compra-total">S/ 0.00</span>
+    </div>
+    <div class="modal-row">
+      <div>
+        <div class="modal-label">Forma de pago</div>
+        <select id="compra-forma-pago">
+          <option value="credito">A crédito (se suma a la deuda del proveedor)</option>
+          <option value="pagado">Pagado ahora (sale de caja)</option>
+        </select>
       </div>
     </div>
     <div class="modal-btns">
