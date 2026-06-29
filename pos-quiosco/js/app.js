@@ -996,7 +996,7 @@ function saveUsuario() {
 function setReporte(r) {
   currentReporte = r;
   document.querySelectorAll('#tab-reportes .tabs .tab').forEach((el,i) => {
-    el.classList.toggle('active', ['ventas','caja','clientes','proveedores','articulos'][i] === r);
+    el.classList.toggle('active', ['ventas','caja','clientes','proveedores','canchas'][i] === r);
   });
   renderReportes();
 }
@@ -1051,10 +1051,6 @@ function renderReportes() {
       <div class="caja-row"><span style="color:#666">Total cobrado</span><span style="font-weight:600;color:#3b6d11">S/ ${totalCobrado.toFixed(2)}</span></div>
       <div class="caja-row"><span>Saldo pendiente por cobrar</span><span style="color:#185fa5">S/ ${totalPendiente.toFixed(2)}</span></div>
     `;
-  } else if (currentReporte === 'articulos') {
-    const valorInventario = products.reduce((s,p)=>s+p.price*p.stock,0);
-    el.innerHTML = products.map(p => `<div class="caja-row"><span style="color:#999">${p.name} (${p.stock} uds)</span><span>S/ ${(p.price*p.stock).toFixed(2)}</span></div>`).join('') +
-      `<div class="caja-row"><span>Valor total del inventario</span><span style="color:#185fa5">S/ ${valorInventario.toFixed(2)}</span></div>`;
   }
 }
 
@@ -1113,10 +1109,6 @@ function exportReporteExcel() {
       rows.push([r.fecha, String(r.hora).padStart(2,'0')+':00', cancha ? cancha.name : '', r.cliente || '', r.duracion,
         (r.descuento||0).toFixed(2), r.total.toFixed(2), (r.adelanto||0).toFixed(2), (r.total-(r.adelanto||0)).toFixed(2), estado]);
     });
-  } else if (currentReporte === 'articulos') {
-    filename = 'reporte_articulos.csv';
-    rows.push(['Producto','Stock','Precio','Valor total']);
-    products.forEach(p => rows.push([p.name, p.stock, p.price.toFixed(2), (p.price*p.stock).toFixed(2)]));
   }
   if (rows.length <= 1) { showNotify('No hay datos para exportar', 'danger'); return; }
   downloadCSV(filename, rows);
