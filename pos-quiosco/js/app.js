@@ -802,18 +802,23 @@ function lastCostoForProducto(productId) {
 
 function onCompraProductoInput(val) {
   const prod = matchCompraProducto(val);
+  const stockEl = document.getElementById('compra-producto-stock');
   if (prod) {
     const costoInput = document.getElementById('compra-costo');
     if (!costoInput.value) {
       const costo = lastCostoForProducto(prod.id);
       if (costo != null) costoInput.value = costo;
     }
+    if (stockEl) stockEl.textContent = `Disponible actualmente: ${prod.stock} uds`;
+  } else if (stockEl) {
+    stockEl.textContent = '';
   }
 }
 
 function onCompraProductoKeydown(e) {
   if (e.key !== 'Enter') return;
   e.preventDefault();
+  onCompraProductoInput(e.target.value);
   const prod = matchCompraProducto(e.target.value);
   if (prod) document.getElementById('compra-cantidad').focus();
   else showNotify('Producto no encontrado', 'danger');
@@ -838,6 +843,7 @@ function openCompraModal(providerId=null) {
   document.getElementById('compra-producto-search').value = '';
   document.getElementById('compra-cantidad').value = '';
   document.getElementById('compra-costo').value = '';
+  document.getElementById('compra-producto-stock').textContent = '';
   document.getElementById('compra-forma-pago').value = 'credito';
   renderCompraItemsList();
   document.getElementById('modal-compra-overlay').classList.add('show');
@@ -857,6 +863,7 @@ function addCompraItem() {
   document.getElementById('compra-producto-search').value = '';
   document.getElementById('compra-cantidad').value = '';
   document.getElementById('compra-costo').value = '';
+  document.getElementById('compra-producto-stock').textContent = '';
   compraSelectedProductId = null;
   renderCompraItemsList();
   document.getElementById('compra-producto-search').focus();
