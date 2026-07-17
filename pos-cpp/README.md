@@ -1,8 +1,13 @@
 # POS Quiosco — versión C++ (ejecutable .exe)
 
-Versión de escritorio en **C++ (consola)** del punto de venta `pos-quiosco`.
-Es un solo archivo (`main.cpp`), sin dependencias externas, que se compila a un
-`.exe` para Windows y funciona sin navegador ni internet.
+Versión de escritorio en **C++** del punto de venta `pos-quiosco`. Sin
+dependencias externas, se compila a un `.exe` para Windows y funciona sin
+navegador ni internet. Hay dos variantes que **comparten el mismo archivo de
+datos** `pos_data.txt`:
+
+- **`gui_win32.cpp` → `PosQuioscoGUI.exe`**: interfaz **gráfica** nativa de
+  Windows (ventana con pestañas, listas y botones). **Recomendada.**
+- **`main.cpp` → `PosQuiosco.exe`**: versión de **consola** (texto).
 
 ## Módulos incluidos
 
@@ -25,7 +30,23 @@ Clave de administrador por defecto: **1234** (constante `ADMIN_PASS` en `main.cp
 Necesitas un compilador de C++ (por ejemplo **MinGW-w64** o **MSYS2**, que
 incluyen `g++`; o **Visual Studio** con `cl`).
 
-### Con g++ (MinGW / MSYS2)
+### Lo más fácil: ejecuta el script incluido
+
+```bat
+build.bat
+```
+
+Compila ambas versiones (`PosQuioscoGUI.exe` y `PosQuiosco.exe`).
+
+### Con g++ (MinGW / MSYS2), manualmente
+
+Versión **gráfica** (recomendada):
+
+```bat
+g++ -std=c++17 -O2 -municode -mwindows -static -o PosQuioscoGUI.exe gui_win32.cpp -lcomctl32 -lgdi32 -luser32
+```
+
+Versión **de consola**:
 
 ```bat
 g++ -std=c++17 -O2 -static -o PosQuiosco.exe main.cpp
@@ -34,17 +55,12 @@ g++ -std=c++17 -O2 -static -o PosQuiosco.exe main.cpp
 El flag `-static` incrusta las librerías para que el `.exe` funcione en
 cualquier PC con Windows sin instalar nada más.
 
-O simplemente ejecuta el script incluido:
-
-```bat
-build.bat
-```
-
 ### Con Visual Studio (MSVC)
 
 Abre el "Developer Command Prompt" y ejecuta:
 
 ```bat
+cl /std:c++17 /EHsc /O2 gui_win32.cpp /Fe:PosQuioscoGUI.exe /link comctl32.lib gdi32.lib user32.lib
 cl /std:c++17 /EHsc /O2 main.cpp /Fe:PosQuiosco.exe
 ```
 
@@ -55,16 +71,27 @@ g++ -std=c++17 -O2 -o PosQuiosco main.cpp
 ./PosQuiosco
 ```
 
-## Uso rápido
+## Uso rápido — versión gráfica (`PosQuioscoGUI.exe`)
 
-1. Ejecuta `PosQuiosco.exe`. La primera vez se cargan productos de ejemplo.
-2. En **Ventas**, escanea o escribe el código de barras (o el nombre) y pulsa
-   ENTER para agregarlo al carrito. Usa `#3` para agregar por ID y `-1` para
-   quitar la primera línea.
-3. Escribe `C` para cobrar: elige cliente (o `0` = mostrador), indica si es
+1. Ejecuta `PosQuioscoGUI.exe`. La primera vez se cargan productos de ejemplo.
+2. Pestaña **Ventas**: escribe/escanea el código o nombre en la caja de búsqueda
+   y pulsa ENTER (o botón *Agregar al carrito*); también puedes hacer **doble
+   clic** en un producto de la lista para agregarlo.
+3. Elige el **cliente** (o *Mostrador* para contado), marca *Fiado* si es a
+   cuenta corriente, escribe el efectivo (calcula el **vuelto**) y pulsa
+   **COBRAR** (o la tecla **F2**).
+4. Pestañas **Inventario / Clientes / Caja** para gestionar stock, cuentas
+   corrientes y movimientos de caja. Inventario pide la clave de administrador
+   (`1234`) — botón *Ingresar como admin* arriba a la derecha.
+
+## Uso rápido — versión de consola (`PosQuiosco.exe`)
+
+1. En **Ventas**, escribe el código de barras o el nombre y pulsa ENTER. Usa
+   `#3` para agregar por ID y `-1` para quitar la primera línea.
+2. Escribe `C` para cobrar: elige cliente (o `0` = mostrador), indica si es
    fiado y el efectivo recibido; el sistema calcula el vuelto.
-4. Para **Inventario** ingresa como administrador (opción 6 del menú o al
-   entrar a Inventario) con la clave `1234`.
+3. Para **Inventario** ingresa como administrador (opción 6 del menú) con la
+   clave `1234`.
 
 ## Notas
 

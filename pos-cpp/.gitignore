@@ -1,6 +1,8 @@
 # Ejecutables compilados
 PosQuiosco
 PosQuiosco.exe
+PosQuioscoGUI
+PosQuioscoGUI.exe
 *.exe
 *.o
 *.obj
