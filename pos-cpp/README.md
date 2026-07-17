@@ -5,9 +5,22 @@ dependencias externas, se compila a un `.exe` para Windows y funciona sin
 navegador ni internet. Hay dos variantes que **comparten el mismo archivo de
 datos** `pos_data.txt`:
 
-- **`gui_win32.cpp` → `PosQuioscoGUI.exe`**: interfaz **gráfica** nativa de
-  Windows (ventana con pestañas, listas y botones). **Recomendada.**
+- **`gui_win32.cpp` → `PosQuioscoGUI.exe`**: interfaz **gráfica** moderna de
+  Windows (cabecera de color, pestañas tipo *pill*, botones planos y listas).
+  **Recomendada.**
 - **`main.cpp` → `PosQuiosco.exe`**: versión de **consola** (texto).
+
+### Módulos de la versión gráfica
+
+- **Ventas**: buscar/escanear, doble clic para agregar al carrito, cliente,
+  fiado, vuelto y cobro (botón o **F2**).
+- **Inventario**: alta/edición/borrado e ingreso de mercadería (clave admin).
+- **Clientes**: cuenta corriente y cobranzas.
+- **Proveedores**: alta/edición/borrado, registro de **compras** (aumenta stock,
+  a crédito o pagado) y **pagos** a proveedor, con historial de compras.
+- **Canchas**: alta/edición/borrado de canchas y gestión de **reservas /
+  alquileres** (con adelanto que entra automáticamente a caja).
+- **Caja**: ingresos, gastos, retiros, saldo y cierre.
 
 ## Módulos incluidos
 
