@@ -1,0 +1,9 @@
+# Ejecutables compilados
+PosQuiosco
+PosQuiosco.exe
+*.exe
+*.o
+*.obj
+
+# Datos generados en tiempo de ejecucion
+pos_data.txt
